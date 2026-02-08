@@ -1,0 +1,31 @@
+#pragma once
+
+#include <sys/epoll.h>
+
+#include <functional>
+
+class TcpSocket;
+
+class EventLoop {
+   public:
+    using EventHandler = std::function<void(uint32_t)>;
+
+    EventLoop();
+    ~EventLoop();
+
+    int addEvent(int fd, uint32_t events, void* ptr);
+
+    int modEvent(int fd, uint32_t events, void* ptr);
+
+    int delEvent(int fd);
+
+    void run();
+
+    void stop();
+
+   private:
+    static const int MAX_EVENTS = 1 << 10;
+
+    int epfd_;
+    bool running_;
+};
