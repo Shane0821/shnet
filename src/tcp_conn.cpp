@@ -7,10 +7,14 @@
 
 #include "shnet/event_loop.h"
 
+inline void TcpConn::ioTrampoline(void* obj, uint32_t events) {
+    static_cast<TcpConn*>(obj)->handleIO(events);
+}
+
 TcpConn::TcpConn(int fd, EventLoop* loop) : conn_sk_(fd), ev_loop_(loop), closed_(false) {
     conn_sk_.setNonBlocking();
     conn_sk_.setKeepAlive();
-    io_handler_ = [this](uint32_t events) { handleIO(events); };
+    io_handler_ = EventLoop::EventHandlerNew{this, &ioTrampoline};
     ev_loop_->addEvent(fd, EPOLLIN | EPOLLRDHUP, &io_handler_);
 }
 

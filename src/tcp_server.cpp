@@ -5,6 +5,10 @@
 #include "shnet/event_loop.h"
 #include "shnet/tcp_conn.h"
 
+inline void TcpServer::acceptTrampoline(void* obj, uint32_t events) {
+    static_cast<TcpServer*>(obj)->handleAccept(events);
+}
+
 TcpServer::TcpServer(EventLoop* loop)
     : ev_loop_(loop), listen_sk_([] {
           int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -56,7 +60,7 @@ void TcpServer::start(uint16_t port, NewConnCallback cb) {
     listen_sk_.setReusable();
 
     new_conn_cb_ = cb;
-    accept_handler_ = [this](uint32_t events) { handleAccept(events); };
+    accept_handler_ = EventLoop::EventHandlerNew{this, &acceptTrampoline};
     ev_loop_->addEvent(listen_sk_.fd(), EPOLLIN, &accept_handler_);
     printf("TcpServer started on port: %d\n", port);
 }

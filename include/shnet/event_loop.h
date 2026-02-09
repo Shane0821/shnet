@@ -9,6 +9,14 @@ class TcpSocket;
 class EventLoop {
    public:
     using EventHandler = std::function<void(uint32_t)>;
+    struct EventHandlerNew {
+        using Callback = void (*)(void* obj, uint32_t events);
+
+        inline void operator()(uint32_t events) const noexcept { cb(obj, events); }
+
+        void* obj;
+        Callback cb;
+    };
 
     EventLoop();
     ~EventLoop();

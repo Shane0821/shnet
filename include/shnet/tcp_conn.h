@@ -13,8 +13,8 @@ class TcpConn {
     using CloseCallback = std::function<void(int)>;
     using IOHandler = std::function<void()>;
 
+    static void ioTrampoline(void *, uint32_t);
     TcpConn(int fd, EventLoop* evLoop);
-
     ~TcpConn();
 
     Message readAll();
@@ -41,7 +41,7 @@ class TcpConn {
     static constexpr size_t SOCK_SEND_LEN = MessageBuffer::DEFAULT_SIZE * 2;
 
     EventLoop* ev_loop_;
-    EventLoop::EventHandler io_handler_;
+    EventLoop::EventHandlerNew io_handler_;
     MessageBuffer rcv_buf_;
     MessageBuffer snd_buf_;
     ReadCallback read_cb_;

@@ -16,6 +16,8 @@ class TcpServer {
 
     using NewConnCallback = std::function<void(TcpConn*)>;
 
+    static void acceptTrampoline(void* obj, uint32_t events);
+
     TcpServer(EventLoop*);
     ~TcpServer();
 
@@ -26,7 +28,7 @@ class TcpServer {
 
     EventLoop* ev_loop_;
     NewConnCallback new_conn_cb_;
-    EventLoop::EventHandler accept_handler_;
+    EventLoop::EventHandlerNew accept_handler_;
     TcpSocket listen_sk_;
     ConnMap conn_map_;
 };
