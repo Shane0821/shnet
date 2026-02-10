@@ -41,7 +41,7 @@ class TcpConn {
     static constexpr size_t SOCK_SEND_LEN = MessageBuffer::DEFAULT_SIZE * 2;
 
     EventLoop* ev_loop_;
-    EventLoop::EventHandlerNew io_handler_;
+    EventLoop::EventHandler io_handler_;
     MessageBuffer rcv_buf_;
     MessageBuffer snd_buf_;
     ReadCallback read_cb_;

@@ -29,7 +29,7 @@ class TcpServer {
 
     EventLoop* ev_loop_;
     NewConnCallback new_conn_cb_;
-    EventLoop::EventHandlerNew accept_handler_;
+    EventLoop::EventHandler accept_handler_;
     TcpSocket listen_sk_;
     ConnMap conn_map_;
 };
