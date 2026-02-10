@@ -39,9 +39,17 @@ void TcpConn::close_with_callback() {
     }
 }
 
-Message TcpConn::readAll() { return rcv_buf_.getAllData(); }
+Message TcpConn::readAll() {
+    auto ret = rcv_buf_.getAllData();
+    rcv_buf_.readCommit(ret.size_);
+    return ret;
+}
 
-Message TcpConn::readLine() { return rcv_buf_.getDataUntil('\n'); }
+Message TcpConn::readLine() {
+    auto ret = rcv_buf_.getDataUntil('\n');
+    rcv_buf_.readCommit(ret.size_);
+    return ret;
+}
 
 void TcpConn::handleIO(uint32_t events) {
     if (closed_) [[unlikely]] {
@@ -62,7 +70,6 @@ void TcpConn::handleRead() {
         if (read_cb_) [[likely]] {
             read_cb_();
         }
-        rcv_buf_.readCommit(n);
         return;
     }
 
@@ -161,4 +168,4 @@ void TcpConn::enableWrite() {
     ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLOUT | EPOLLRDHUP, &io_handler_);
 }
 
-}
+}  // namespace shnet
