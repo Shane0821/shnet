@@ -14,6 +14,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    SHLOG_INIT(shlog::LogLevel::DEBUG);
+
     uint16_t port = atoi(argv[1]);
 
     EventLoop evloop;

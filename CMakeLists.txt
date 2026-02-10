@@ -27,6 +27,12 @@ set(CMAKE_DIR "${ROOT_DIR}/cmake")
 # ============================
 
 include(FetchContent)
+FetchContent_Declare(
+    shlog
+    GIT_REPOSITORY https://github.com/Shane0821/logger
+    GIT_TAG 6850fb63010fd384c0f29d67fd79769d599ef70c
+)
+FetchContent_MakeAvailable(shlog)
 
 
 # ============================

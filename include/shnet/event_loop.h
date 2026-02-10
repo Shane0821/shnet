@@ -4,6 +4,8 @@
 
 #include <functional>
 
+#include "shlog/logger.h"
+
 namespace shnet {
 
 class TcpSocket;

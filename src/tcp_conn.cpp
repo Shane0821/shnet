@@ -26,7 +26,7 @@ void TcpConn::close() {
     if (closed_) {
         return;
     }
-    printf("close conn\n");
+    SHLOG_DEBUG("Tcpconn close: {}", conn_sk_.fd());
     closed_ = true;
     ev_loop_->delEvent(conn_sk_.fd());
     conn_sk_.close();
@@ -56,7 +56,6 @@ void TcpConn::handleIO(uint32_t events) {
 }
 
 void TcpConn::handleRead() {
-    printf("handle read\n");
     int err = 0;
     auto n = recv();
     if (n > 0) [[likely]] {
@@ -68,13 +67,12 @@ void TcpConn::handleRead() {
     }
 
     if (n == 0 || (n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK))) {
-        printf("n: %ld\n", n);
+        SHLOG_ERROR("handled read failed: {}", n);
         close_with_callback();
     }
 }
 
 void TcpConn::handleWrite() {
-    printf("handle write\n");
     auto n = conn_sk_.send(snd_buf_.readPointer(), snd_buf_.readableSize(), MSG_NOSIGNAL);
 
     if (n > 0) [[likely]] {
@@ -93,7 +91,6 @@ void TcpConn::handleWrite() {
 // returns size of data waiting for processing or errno
 ssize_t TcpConn::recv() {
     if (rcv_buf_.full()) [[unlikely]] {
-        printf("rcv buffer full\n");
         return rcv_buf_.readableSize();
     }
 
@@ -105,11 +102,11 @@ ssize_t TcpConn::recv() {
 
     ssize_t ret = conn_sk_.read(rcv_buf_.writePointer(), len);
     if (ret < 0) [[unlikely]] {
-        printf("err read\n");
+        SHLOG_ERROR("error read: {}", ret);
         return ret;
     }
     if (ret == 0) [[unlikely]] {
-        printf("conn reset by peer\n");
+        SHLOG_ERROR("connection reset by peer");
         return -ECONNRESET;
     }
 

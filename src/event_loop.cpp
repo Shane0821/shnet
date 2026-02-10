@@ -31,7 +31,7 @@ int EventLoop::addEvent(int fd, uint32_t events, void* ptr) {
     ev.data.ptr = ptr;
     int ret = ::epoll_ctl(epfd_, EPOLL_CTL_ADD, fd, &ev);
     if (ret < 0) {
-        printf("epoll_ctl ADD failed for fd: %d\n", fd);
+        SHLOG_ERROR("epoll_ctl ADD failed for fd: {}", fd);
     }
     return -1;
 }
@@ -42,7 +42,7 @@ int EventLoop::modEvent(int fd, uint32_t events, void* ptr) {
     ev.data.ptr = ptr;
     int ret = ::epoll_ctl(epfd_, EPOLL_CTL_MOD, fd, &ev);
     if (ret < 0) {
-        printf("epoll_ctl MOD failed for fd: %d\n", fd);
+        SHLOG_ERROR("epoll_ctl MOD failed for fd: {}", fd);
     }
     return -1;
 }
@@ -50,7 +50,7 @@ int EventLoop::modEvent(int fd, uint32_t events, void* ptr) {
 int EventLoop::delEvent(int fd) {
     int ret = ::epoll_ctl(epfd_, EPOLL_CTL_DEL, fd, nullptr);
     if (ret < 0) {
-        printf("epoll_ctl DEL failed for fd: %d\n", fd);
+        SHLOG_ERROR("epoll_ctl DEL failed for fd: {}", fd);
     }
     return ret;
 }
@@ -67,7 +67,7 @@ void EventLoop::run() {
             if (errno == EINTR) {
                 continue;
             }
-            printf("epoll_wait failed\n");
+            SHLOG_ERROR("epoll_wait failed with: {}", errno);
             continue;
         }
 

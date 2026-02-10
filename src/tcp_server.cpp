@@ -25,20 +25,17 @@ TcpServer::~TcpServer() {}
 
 void TcpServer::handleAccept(uint32_t events) {
     if (events & EPOLLIN) {
-        printf("epollin\n");
         sockaddr_in client_addr{};
         socklen_t len = sizeof(client_addr);
         int conn_fd =
             ::accept4(listen_sk_.fd(), (sockaddr*)&client_addr, &len, SOCK_NONBLOCK);
         if (conn_fd == -1) [[unlikely]] {
-            printf("server failed to create connection\n");
+            SHLOG_ERROR("failed to create connection");
             return;
         }
 
-        printf("build conn\n");
         auto conn = std::make_unique<TcpConn>(conn_fd, ev_loop_);
         conn->setCloseCallback([this](int fd) { conn_map_.erase(fd); });
-        printf("new conn cb\n");
         if (new_conn_cb_) [[likely]] {
             new_conn_cb_(conn.get());
         }
@@ -47,7 +44,6 @@ void TcpServer::handleAccept(uint32_t events) {
 }
 
 void TcpServer::start(uint16_t port, NewConnCallback cb) {
-    printf("TcpServer start called\n");
     int ret = listen_sk_.bind(port);
     if (ret < 0) [[unlikely]] {
         throw std::system_error(errno, std::system_category(), "bind failed");
@@ -64,7 +60,7 @@ void TcpServer::start(uint16_t port, NewConnCallback cb) {
     new_conn_cb_ = cb;
     accept_handler_ = EventLoop::EventHandlerNew{this, &acceptTrampoline};
     ev_loop_->addEvent(listen_sk_.fd(), EPOLLIN, &accept_handler_);
-    printf("TcpServer started on port: %d\n", port);
+    SHLOG_INFO("TcpServer started on port: {}", port);
 }
 
 }
