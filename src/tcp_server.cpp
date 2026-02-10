@@ -58,7 +58,7 @@ void TcpServer::start(uint16_t port, NewConnCallback cb) {
     listen_sk_.setReusable();
 
     new_conn_cb_ = cb;
-    accept_handler_ = EventLoop::EventHandlerNew{this, &acceptTrampoline};
+    accept_handler_ = EventLoop::EventHandler{this, &acceptTrampoline};
     ev_loop_->addEvent(listen_sk_.fd(), EPOLLIN, &accept_handler_);
     SHLOG_INFO("TcpServer started on port: {}", port);
 }

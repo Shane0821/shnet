@@ -16,7 +16,7 @@ inline void TcpConn::ioTrampoline(void* obj, uint32_t events) {
 TcpConn::TcpConn(int fd, EventLoop* loop) : conn_sk_(fd), ev_loop_(loop), closed_(false) {
     conn_sk_.setNonBlocking();
     conn_sk_.setKeepAlive();
-    io_handler_ = EventLoop::EventHandlerNew{this, &ioTrampoline};
+    io_handler_ = EventLoop::EventHandler{this, &ioTrampoline};
     ev_loop_->addEvent(fd, EPOLLIN | EPOLLRDHUP, &io_handler_);
 }
 
@@ -26,7 +26,7 @@ void TcpConn::close() {
     if (closed_) {
         return;
     }
-    SHLOG_DEBUG("Tcpconn close: {}", conn_sk_.fd());
+    SHLOG_INFO("Tcpconn close: {}", conn_sk_.fd());
     closed_ = true;
     ev_loop_->delEvent(conn_sk_.fd());
     conn_sk_.close();
@@ -106,7 +106,7 @@ ssize_t TcpConn::recv() {
         return ret;
     }
     if (ret == 0) [[unlikely]] {
-        SHLOG_ERROR("connection reset by peer");
+        SHLOG_INFO("connection reset by peer");
         return -ECONNRESET;
     }
 
