@@ -5,6 +5,8 @@
 #include "shnet/event_loop.h"
 #include "shnet/tcp_conn.h"
 
+namespace shnet {
+
 inline void TcpServer::acceptTrampoline(void* obj, uint32_t events) {
     static_cast<TcpServer*>(obj)->handleAccept(events);
 }
@@ -63,4 +65,6 @@ void TcpServer::start(uint16_t port, NewConnCallback cb) {
     accept_handler_ = EventLoop::EventHandlerNew{this, &acceptTrampoline};
     ev_loop_->addEvent(listen_sk_.fd(), EPOLLIN, &accept_handler_);
     printf("TcpServer started on port: %d\n", port);
+}
+
 }

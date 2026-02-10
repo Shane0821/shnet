@@ -4,6 +4,8 @@
 
 #include <functional>
 
+namespace shnet {
+
 class TcpSocket;
 
 class EventLoop {
@@ -37,3 +39,4 @@ class EventLoop {
     int epfd_;
     bool running_;
 };
+}  // namespace shnet

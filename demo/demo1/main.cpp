@@ -5,6 +5,10 @@
 #include "shnet/tcp_conn.h"
 #include "shnet/tcp_server.h"
 
+using shnet::EventLoop;
+using shnet::TcpConn;
+using shnet::TcpServer;
+
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         return 1;

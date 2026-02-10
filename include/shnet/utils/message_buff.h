@@ -7,6 +7,8 @@
 #include <cstring>
 #include <vector>
 
+namespace shnet {
+
 struct Message {
     char* data_;
     size_t size_;
@@ -116,3 +118,5 @@ class MessageBuffer {
     std::size_t read_pos_;
     std::size_t write_pos_;
 };
+
+}

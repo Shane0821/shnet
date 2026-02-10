@@ -2,6 +2,7 @@
 
 #include <stdexcept>
 
+namespace shnet {
 // NOTE: check fd != -1 before setting
 TcpSocket::TcpSocket(int fd) : sockfd_(fd) {}
 
@@ -78,3 +79,5 @@ ssize_t TcpSocket::send(const void* buf, size_t len, int flags) {
 }
 
 void TcpSocket::close() { ::close(sockfd_); }
+
+}

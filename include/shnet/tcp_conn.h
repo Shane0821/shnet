@@ -6,14 +6,14 @@
 #include "event_loop.h"
 #include "shnet/utils/message_buff.h"
 #include "tcp_socket.h"
-
+namespace shnet {
 class TcpConn {
    public:
     using ReadCallback = std::function<void()>;
     using CloseCallback = std::function<void(int)>;
     using IOHandler = std::function<void()>;
 
-    static void ioTrampoline(void *, uint32_t);
+    static void ioTrampoline(void*, uint32_t);
     TcpConn(int fd, EventLoop* evLoop);
     ~TcpConn();
 
@@ -49,3 +49,4 @@ class TcpConn {
     TcpSocket conn_sk_;
     bool closed_{false};
 };
+}  // namespace shnet

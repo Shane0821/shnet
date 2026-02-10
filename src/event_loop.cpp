@@ -9,6 +9,7 @@
 
 #include "shnet/tcp_socket.h"
 
+namespace shnet {
 EventLoop::EventLoop() : running_{false} {
     epfd_ = epoll_create1(0);
     if (epfd_ < 0) {
@@ -78,3 +79,4 @@ void EventLoop::run() {
 }
 
 void EventLoop::stop() { running_ = false; }
+}

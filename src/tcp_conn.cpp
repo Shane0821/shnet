@@ -7,6 +7,8 @@
 
 #include "shnet/event_loop.h"
 
+namespace shnet {
+
 inline void TcpConn::ioTrampoline(void* obj, uint32_t events) {
     static_cast<TcpConn*>(obj)->handleIO(events);
 }
@@ -160,4 +162,6 @@ void TcpConn::disableWrite() {
 
 void TcpConn::enableWrite() {
     ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLOUT | EPOLLRDHUP, &io_handler_);
+}
+
 }

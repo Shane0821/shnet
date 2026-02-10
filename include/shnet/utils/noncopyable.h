@@ -1,5 +1,7 @@
 #pragma once
 
+namespace shnet {
+
 class noncopyable {
    protected:
     noncopyable() = default;
@@ -8,3 +10,5 @@ class noncopyable {
     noncopyable(const noncopyable&) = delete;
     noncopyable& operator=(const noncopyable&) = delete;
 };
+
+}
