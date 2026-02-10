@@ -22,11 +22,11 @@ int main(int argc, char* argv[]) {
     TcpServer server(&evloop);
 
     server.start(port, [](TcpConn* conn) {
-        std::cout << "New connection established\n";
+        SHLOG_INFO("new connection restablished");
 
         conn->setReadCallback([conn]() {
             auto msg = conn->readAll();
-            std::cout << "Received: " << msg.data_ << std::endl;
+            SHLOG_INFO("received: {}", msg.data_);
             conn->send("HTTP/1.1 200 OK\nContent-Length: 12\n\nHello World!\n", 50);
         });
         // conn->SetReadCallback([conn]() {
