@@ -47,7 +47,10 @@ Message TcpConn::readAll() {
 
 Message TcpConn::readLine() {
     auto ret = rcv_buf_.getDataUntil('\n');
-    rcv_buf_.readCommit(ret.size_);
+    if (ret.data_ != nullptr) {
+        // Consume the delimiter as well while returning line content only.
+        rcv_buf_.readCommit(ret.size_ + 1);
+    }
     return ret;
 }
 
