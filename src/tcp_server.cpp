@@ -44,6 +44,9 @@ void TcpServer::handleAccept(uint32_t events) {
 }
 
 void TcpServer::start(uint16_t port, NewConnCallback cb) {
+    listen_sk_.setNonBlocking();
+    listen_sk_.setReusable();
+
     int ret = listen_sk_.bind(port);
     if (ret < 0) [[unlikely]] {
         throw std::system_error(errno, std::system_category(), "bind failed");
@@ -54,13 +57,10 @@ void TcpServer::start(uint16_t port, NewConnCallback cb) {
         throw std::system_error(errno, std::system_category(), "listen failed");
     }
 
-    listen_sk_.setNonBlocking();
-    listen_sk_.setReusable();
-
     new_conn_cb_ = cb;
     accept_handler_ = EventLoop::EventHandler{this, &acceptTrampoline};
     ev_loop_->addEvent(listen_sk_.fd(), EPOLLIN, &accept_handler_);
     SHLOG_INFO("TcpServer started on port: {}", port);
 }
 
-}
+}  // namespace shnet
