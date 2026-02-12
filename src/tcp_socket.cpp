@@ -76,8 +76,15 @@ ssize_t TcpSocket::send(const void* buf, size_t len, int flags) {
     return ::send(sockfd_, buf, len, flags);
 }
 
+void TcpSocket::shutdown() {
+    if (sockfd_ != -1) {
+        ::shutdown(sockfd_, SHUT_RDWR);
+    }
+}
+
 void TcpSocket::close() {
     if (sockfd_ != -1) {
+        shutdown();
         ::close(sockfd_);
         sockfd_ = -1;
     }

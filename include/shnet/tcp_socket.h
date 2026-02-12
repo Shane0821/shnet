@@ -31,6 +31,7 @@ class TcpSocket : noncopyable {
 
     int bind(uint16_t port);
     int listen();
+    void shutdown();
     void close();
 
     ssize_t read(void* buf, size_t len);
