@@ -33,7 +33,7 @@ int EventLoop::addEvent(int fd, uint32_t events, void* ptr) {
     if (ret < 0) {
         SHLOG_ERROR("epoll_ctl ADD failed for fd: {}", fd);
     }
-    return -1;
+    return ret;
 }
 
 int EventLoop::modEvent(int fd, uint32_t events, void* ptr) {
@@ -44,7 +44,7 @@ int EventLoop::modEvent(int fd, uint32_t events, void* ptr) {
     if (ret < 0) {
         SHLOG_ERROR("epoll_ctl MOD failed for fd: {}", fd);
     }
-    return -1;
+    return ret;
 }
 
 int EventLoop::delEvent(int fd) {
