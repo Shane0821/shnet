@@ -22,7 +22,7 @@ class TcpServer {
     TcpServer(EventLoop*);
     ~TcpServer();
 
-    void start(u_int16_t port, NewConnCallback cb);
+    void start(uint16_t port, NewConnCallback cb);
 
    private:
     void handleAccept(uint32_t);
