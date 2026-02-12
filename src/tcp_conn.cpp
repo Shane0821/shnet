@@ -67,7 +67,6 @@ void TcpConn::handleIO(uint32_t events) {
 }
 
 void TcpConn::handleRead() {
-    int err = 0;
     auto n = recv();
     if (n > 0) [[likely]] {
         if (read_cb_) [[likely]] {
@@ -76,7 +75,11 @@ void TcpConn::handleRead() {
         return;
     }
 
-    if (n == 0 || (n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK))) {
+    if (n == 0) {
+        return;
+    }
+
+    if (n < 0) {
         SHLOG_ERROR("handled read failed: {}", n);
         close_with_callback();
     }
@@ -112,8 +115,11 @@ ssize_t TcpConn::recv() {
 
     ssize_t ret = conn_sk_.read(rcv_buf_.writePointer(), len);
     if (ret < 0) [[unlikely]] {
-        SHLOG_ERROR("error read: {}", ret);
-        return ret;
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return rcv_buf_.readableSize();
+        }
+        SHLOG_ERROR("error read: {}", errno);
+        return -errno;
     }
     if (ret == 0) [[unlikely]] {
         SHLOG_INFO("connection reset by peer");
