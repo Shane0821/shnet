@@ -51,8 +51,6 @@ void TcpSocket::setSndBufSize(int sndBufSize) {
     setsockopt(sockfd_, SOL_SOCKET, SO_SNDBUF, &sndBufSize, sizeof(sndBufSize));
 }
 
-int TcpSocket::fd() const { return sockfd_; }
-
 int TcpSocket::bind(uint16_t port) {
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
@@ -78,6 +76,11 @@ ssize_t TcpSocket::send(const void* buf, size_t len, int flags) {
     return ::send(sockfd_, buf, len, flags);
 }
 
-void TcpSocket::close() { ::close(sockfd_); }
-
+void TcpSocket::close() {
+    if (sockfd_ != -1) {
+        ::close(sockfd_);
+        sockfd_ = -1;
+    }
 }
+
+}  // namespace shnet

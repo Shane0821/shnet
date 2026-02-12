@@ -27,7 +27,7 @@ class TcpSocket : noncopyable {
 
     bool getTcpInfo(struct tcp_info*) const { return true; }
 
-    int fd() const;
+    int fd() const { return sockfd_; }
 
     int bind(uint16_t port);
     int listen();
@@ -47,6 +47,6 @@ class TcpSocket : noncopyable {
     // affects accept queue -> also affects syn queue
     static constexpr int LISTEN_BACKLOG = 128;
 
-    const int sockfd_;
+    int sockfd_;
 };
-}
+}  // namespace shnet
