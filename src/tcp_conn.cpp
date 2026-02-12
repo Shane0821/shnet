@@ -33,9 +33,10 @@ void TcpConn::close() {
 }
 
 void TcpConn::close_with_callback() {
+    const int fd = conn_sk_.fd();
     close();
     if (close_cb_) [[likely]] {
-        close_cb_(conn_sk_.fd());
+        close_cb_(fd);
     }
 }
 
