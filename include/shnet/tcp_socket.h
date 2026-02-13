@@ -31,6 +31,7 @@ class TcpSocket : noncopyable {
 
     int bind(uint16_t port);
     int listen();
+    void shutdownWrite();
     void shutdown();
     void close();
 

@@ -62,7 +62,10 @@ void TcpConn::handleIO(uint32_t events) {
 
     if (events & EPOLLIN) handleRead();
     if (events & EPOLLOUT) handleWrite();
-    if (events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
+    if (events & (EPOLLERR | EPOLLHUP)) {
+        shutdown_write_on_error();
+    }
+    if (events & EPOLLRDHUP) {
         close_with_callback();
     }
 }
@@ -82,7 +85,7 @@ void TcpConn::handleRead() {
 
     if (n < 0) {
         SHLOG_ERROR("handled read failed: {}", n);
-        close_with_callback();
+        shutdown_write_on_error();
     }
 }
 
@@ -98,7 +101,7 @@ void TcpConn::handleWrite() {
     }
 
     if (n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
-        close();
+        shutdown_write_on_error();
     }
 }
 
@@ -135,6 +138,9 @@ ssize_t TcpConn::send(const char* data, size_t size) {
     if (!data || size == 0) [[unlikely]] {
         return 0;
     }
+    if (closed_ || write_shutdown_) [[unlikely]] {
+        return -ESHUTDOWN;
+    }
 
     if (snd_buf_.getFreeSize() < size) {
         return -1;
@@ -157,7 +163,7 @@ ssize_t TcpConn::send(const char* data, size_t size) {
             snd_buf_.write(data, size);
             enableWrite();
         } else {
-            close_with_callback();
+            shutdown_write_on_error();
         }
         return n;
     }
@@ -176,6 +182,15 @@ void TcpConn::disableWrite() {
 
 void TcpConn::enableWrite() {
     ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLOUT | EPOLLRDHUP, &io_handler_);
+}
+
+void TcpConn::shutdown_write_on_error() {
+    if (closed_ || write_shutdown_) [[unlikely]] {
+        return;
+    }
+    write_shutdown_ = true;
+    conn_sk_.shutdownWrite();
+    disableWrite();
 }
 
 }  // namespace shnet
