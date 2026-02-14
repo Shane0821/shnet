@@ -31,7 +31,7 @@ class TcpConn {
     void handleWrite();
 
     ssize_t recv();
-    void shutdown_write_on_error();
+    void shutdown_on_error();
     void close();
     void close_with_callback();
 
@@ -49,6 +49,6 @@ class TcpConn {
     CloseCallback close_cb_;
     TcpSocket conn_sk_;
     bool closed_{false};
-    bool write_shutdown_{false};
+    bool shutdown_{false};
 };
 }  // namespace shnet

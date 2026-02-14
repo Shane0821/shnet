@@ -60,14 +60,18 @@ void TcpConn::handleIO(uint32_t events) {
         return;
     }
 
-    if (events & EPOLLIN) handleRead();
-    if (events & EPOLLOUT) handleWrite();
     if (events & (EPOLLERR | EPOLLHUP)) {
-        shutdown_write_on_error();
+        shutdown_on_error();
+        return;
     }
     if (events & EPOLLRDHUP) {
         close_with_callback();
+        return;
     }
+
+    if (events & EPOLLIN) handleRead();
+    if (events & EPOLLOUT) handleWrite();
+    
 }
 
 void TcpConn::handleRead() {
@@ -85,7 +89,7 @@ void TcpConn::handleRead() {
 
     if (n < 0) {
         SHLOG_ERROR("handled read failed: {}", n);
-        shutdown_write_on_error();
+        shutdown_on_error();
     }
 }
 
@@ -101,7 +105,7 @@ void TcpConn::handleWrite() {
     }
 
     if (n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
-        shutdown_write_on_error();
+        shutdown_on_error();
     }
 }
 
@@ -138,7 +142,7 @@ ssize_t TcpConn::send(const char* data, size_t size) {
     if (!data || size == 0) [[unlikely]] {
         return 0;
     }
-    if (closed_ || write_shutdown_) [[unlikely]] {
+    if (closed_ || shutdown_) [[unlikely]] {
         return -ESHUTDOWN;
     }
 
@@ -163,7 +167,7 @@ ssize_t TcpConn::send(const char* data, size_t size) {
             snd_buf_.write(data, size);
             enableWrite();
         } else {
-            shutdown_write_on_error();
+            shutdown_on_error();
         }
         return n;
     }
@@ -184,12 +188,12 @@ void TcpConn::enableWrite() {
     ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLOUT | EPOLLRDHUP, &io_handler_);
 }
 
-void TcpConn::shutdown_write_on_error() {
-    if (closed_ || write_shutdown_) [[unlikely]] {
+void TcpConn::shutdown_on_error() {
+    if (closed_ || shutdown_) [[unlikely]] {
         return;
     }
-    write_shutdown_ = true;
-    conn_sk_.shutdownWrite();
+    shutdown_ = true;
+    conn_sk_.shutdown();
     disableWrite();
 }
 
