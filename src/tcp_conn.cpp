@@ -34,14 +34,16 @@ void TcpConn::close() {
     SHLOG_INFO("Tcpconn close: {}", conn_sk_.fd());
     closed_ = true;
     ev_loop_->delEvent(conn_sk_.fd());
+    if (close_cb_) [[likely]] {
+        close_cb_(conn_sk_.fd());
+    }
     conn_sk_.close();
 }
 
-void TcpConn::close_with_callback() {
-    const int fd = conn_sk_.fd();
-    close();
-    if (close_cb_) [[likely]] {
-        close_cb_(fd);
+void TcpConn::unregister() {
+    if (unregister_cb_) [[likely]] {
+        SHLOG_INFO("unregistering connection fd {} from epoll", conn_sk_.fd());
+        unregister_cb_(conn_sk_.fd());
     }
 }
 
@@ -68,6 +70,13 @@ void TcpConn::handleIO(uint32_t events) {
     if (events & (EPOLLERR | EPOLLHUP)) [[unlikely]] {
         SHLOG_ERROR("connection fd {} got error/hup events: {}", conn_sk_.fd(), events);
         shutdown_on_error();
+        return;
+    }
+
+    if (events & EPOLLRDHUP) [[unlikely]] {
+        SHLOG_INFO("connection fd {} got rdhup events: {}", conn_sk_.fd(), events);
+        // TODO handle epoll rd hup
+        unregister();
         return;
     }
 

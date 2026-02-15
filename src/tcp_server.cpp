@@ -41,7 +41,7 @@ void TcpServer::handleAccept(uint32_t events) {
         }
 
         auto conn = std::make_unique<TcpConn>(conn_fd, ev_loop_);
-        conn->setCloseCallback([this](int fd) { conn_map_.erase(fd); });
+        conn->setUnregisterCallback([this](int fd) { conn_map_.erase(fd); });
         if (new_conn_cb_) [[likely]] {
             new_conn_cb_(conn.get());
         }

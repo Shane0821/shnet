@@ -11,6 +11,7 @@ class TcpConn {
    public:
     using ReadCallback = std::function<void()>;
     using CloseCallback = std::function<void(int)>;
+    using UnregisterCallback = std::function<void(int)>;
     using IOHandler = std::function<void()>;
 
     static void ioTrampoline(void*, uint32_t);
@@ -21,8 +22,9 @@ class TcpConn {
     Message readLine();
     ssize_t send(const char* data, size_t size);
 
-    void setReadCallback(ReadCallback cb) { read_cb_ = cb; }
-    void setCloseCallback(CloseCallback cb) { close_cb_ = cb; }
+    void setReadCallback(auto&& cb) { read_cb_ = cb; }
+    void setCloseCallback(auto&& cb) { close_cb_ = cb; }
+    void setUnregisterCallback(auto&& cb) { unregister_cb_ = cb; }
 
    private:
     void handleIO(uint32_t);
@@ -33,7 +35,7 @@ class TcpConn {
     ssize_t recv();
     void shutdown_on_error();
     void close();
-    void close_with_callback();
+    void unregister();
 
     void enableWrite();
     void disableWrite();
@@ -47,6 +49,7 @@ class TcpConn {
     MessageBuffer snd_buf_;
     ReadCallback read_cb_;
     CloseCallback close_cb_;
+    UnregisterCallback unregister_cb_;
     TcpSocket conn_sk_;
     bool closed_{false};
     bool shutdown_{false};
