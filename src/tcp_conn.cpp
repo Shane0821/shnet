@@ -182,7 +182,7 @@ ssize_t TcpConn::send(const char* data, size_t size) {
         enableWrite();
     }
 
-    return n;
+    return size;
 }
 
 void TcpConn::disableWrite() {
