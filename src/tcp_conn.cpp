@@ -1,10 +1,11 @@
 #include "shnet/tcp_conn.h"
 
 #include <arpa/inet.h>
-#include <cerrno>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+#include <cerrno>
 
 #include "shnet/event_loop.h"
 
@@ -141,7 +142,7 @@ ssize_t TcpConn::send(const char* data, size_t size) {
 
     if (snd_buf_.getFreeSize() < size) [[unlikely]] {
         SHLOG_WARN("send buffer overflow risk on fd {}: free {} < want {}", conn_sk_.fd(),
-                    snd_buf_.getFreeSize(), size);
+                   snd_buf_.getFreeSize(), size);
         return -1;
     }
 
@@ -176,14 +177,15 @@ ssize_t TcpConn::send(const char* data, size_t size) {
 }
 
 void TcpConn::disableWrite() {
-    if (ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLRDHUP, &io_handler_) < 0) [[unlikely]] {
+    if (ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLRDHUP, &io_handler_) < 0)
+        [[unlikely]] {
         SHLOG_ERROR("failed to disable EPOLLOUT for fd {}: {}", conn_sk_.fd(), errno);
     }
 }
 
 void TcpConn::enableWrite() {
-    if (ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLOUT | EPOLLRDHUP, &io_handler_) < 0)
-        [[unlikely]] {
+    if (ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLOUT | EPOLLRDHUP, &io_handler_) <
+        0) [[unlikely]] {
         SHLOG_ERROR("failed to enable EPOLLOUT for fd {}: {}", conn_sk_.fd(), errno);
     }
 }
