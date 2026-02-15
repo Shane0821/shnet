@@ -171,9 +171,10 @@ ssize_t TcpConn::send(const char* data, size_t size) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             snd_buf_.write(data, size);
             enableWrite();
-        } else {
-            shutdown_on_error();
-        }
+            return size;
+        } 
+        SHLOG_ERROR("send failed on fd {}: {}", conn_sk_.fd(), n);
+        shutdown_on_error();
         return n;
     }
 
