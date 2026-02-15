@@ -1,5 +1,6 @@
 #include "shnet/tcp_server.h"
 
+#include <cerrno>
 #include <iostream>
 
 #include "shnet/event_loop.h"
@@ -24,13 +25,18 @@ TcpServer::TcpServer(EventLoop* loop)
 TcpServer::~TcpServer() {}
 
 void TcpServer::handleAccept(uint32_t events) {
-    if (events & EPOLLIN) {
+    if (events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) [[unlikely]] {
+        SHLOG_ERROR("listen socket error events: {}", events);
+        return;
+    }
+
+    if (events & EPOLLIN) [[likely]] {
         sockaddr_in client_addr{};
         socklen_t len = sizeof(client_addr);
         int conn_fd =
             ::accept4(listen_sk_.fd(), (sockaddr*)&client_addr, &len, SOCK_NONBLOCK);
         if (conn_fd == -1) [[unlikely]] {
-            SHLOG_ERROR("failed to create connection");
+            SHLOG_ERROR("accept4 failed on listen fd {}: {}", listen_sk_.fd(), errno);
             return;
         }
 
@@ -59,7 +65,10 @@ void TcpServer::start(uint16_t port, NewConnCallback cb) {
 
     new_conn_cb_ = cb;
     accept_handler_ = EventLoop::EventHandler{this, &acceptTrampoline};
-    ev_loop_->addEvent(listen_sk_.fd(), EPOLLIN, &accept_handler_);
+    if (ev_loop_->addEvent(listen_sk_.fd(), EPOLLIN, &accept_handler_) < 0) [[unlikely]] {
+        throw std::system_error(errno, std::system_category(),
+                                "failed to register listen socket to epoll");
+    }
     SHLOG_INFO("TcpServer started on port: {}", port);
 }
 

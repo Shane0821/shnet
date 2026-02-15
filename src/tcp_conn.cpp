@@ -1,6 +1,7 @@
 #include "shnet/tcp_conn.h"
 
 #include <arpa/inet.h>
+#include <cerrno>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -17,7 +18,10 @@ TcpConn::TcpConn(int fd, EventLoop* loop) : conn_sk_(fd), ev_loop_(loop), closed
     conn_sk_.setNonBlocking();
     conn_sk_.setKeepAlive();
     io_handler_ = EventLoop::EventHandler{this, &ioTrampoline};
-    ev_loop_->addEvent(fd, EPOLLIN | EPOLLRDHUP, &io_handler_);
+    if (ev_loop_->addEvent(fd, EPOLLIN | EPOLLRDHUP, &io_handler_) < 0) [[unlikely]] {
+        SHLOG_ERROR("failed to register connection fd {} to epoll: {}", fd, errno);
+        shutdown_on_error();
+    }
 }
 
 TcpConn::~TcpConn() { close(); }
@@ -60,7 +64,8 @@ void TcpConn::handleIO(uint32_t events) {
         return;
     }
 
-    if (events & (EPOLLERR | EPOLLHUP)) {
+    if (events & (EPOLLERR | EPOLLHUP)) [[unlikely]] {
+        SHLOG_ERROR("connection fd {} got error/hup events: {}", conn_sk_.fd(), events);
         shutdown_on_error();
         return;
     }
@@ -78,8 +83,8 @@ void TcpConn::handleRead() {
         return;
     }
 
-    if (n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
-        SHLOG_ERROR("handle read failed: {}", n);
+    if (n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) [[unlikely]] {
+        SHLOG_ERROR("handle read failed on fd {}: {}", conn_sk_.fd(), errno);
         shutdown_on_error();
     }
 }
@@ -95,7 +100,8 @@ void TcpConn::handleWrite() {
         return;
     }
 
-    if (n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
+    if (n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) [[unlikely]] {
+        SHLOG_ERROR("handle write failed on fd {}: {}", conn_sk_.fd(), errno);
         shutdown_on_error();
     }
 }
@@ -133,16 +139,18 @@ ssize_t TcpConn::send(const char* data, size_t size) {
         return -ESHUTDOWN;
     }
 
-    if (snd_buf_.getFreeSize() < size) {
+    if (snd_buf_.getFreeSize() < size) [[unlikely]] {
+        SHLOG_WARN("send buffer overflow risk on fd {}: free {} < want {}", conn_sk_.fd(),
+                    snd_buf_.getFreeSize(), size);
         return -1;
     }
 
-    if (snd_buf_.writableSize() < size) {
+    if (snd_buf_.writableSize() < size) [[unlikely]] {
         snd_buf_.shrink();
     }
 
     // write enabled. append data and wait for the next epoll write event,
-    if (snd_buf_.readableSize() > 0) {
+    if (snd_buf_.readableSize() > 0) [[unlikely]] {
         snd_buf_.write(data, size);
         return size;
     }
@@ -159,7 +167,7 @@ ssize_t TcpConn::send(const char* data, size_t size) {
         return n;
     }
 
-    if (n < size) {
+    if (n < size) [[unlikely]] {
         snd_buf_.write(data + n, size - n);
         enableWrite();
     }
@@ -168,11 +176,16 @@ ssize_t TcpConn::send(const char* data, size_t size) {
 }
 
 void TcpConn::disableWrite() {
-    ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLRDHUP, &io_handler_);
+    if (ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLRDHUP, &io_handler_) < 0) [[unlikely]] {
+        SHLOG_ERROR("failed to disable EPOLLOUT for fd {}: {}", conn_sk_.fd(), errno);
+    }
 }
 
 void TcpConn::enableWrite() {
-    ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLOUT | EPOLLRDHUP, &io_handler_);
+    if (ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLOUT | EPOLLRDHUP, &io_handler_) < 0)
+        [[unlikely]] {
+        SHLOG_ERROR("failed to enable EPOLLOUT for fd {}: {}", conn_sk_.fd(), errno);
+    }
 }
 
 void TcpConn::shutdown_on_error() {
