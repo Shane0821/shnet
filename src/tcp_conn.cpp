@@ -124,10 +124,6 @@ ssize_t TcpConn::recv() {
         SHLOG_ERROR("error read: {}", errno);
         return -errno;
     }
-    if (ret == 0) [[unlikely]] {
-        SHLOG_INFO("connection reset by peer");
-        return -ECONNRESET;
-    }
 
     rcv_buf_.writeCommit(ret);
     return rcv_buf_.readableSize();
