@@ -78,12 +78,8 @@ void TcpConn::handleRead() {
         return;
     }
 
-    if (n == 0) {
-        return;
-    }
-
-    if (n < 0) {
-        SHLOG_ERROR("handled read failed: {}", n);
+    if (n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) {
+        SHLOG_ERROR("handle read failed: {}", n);
         shutdown_on_error();
     }
 }
