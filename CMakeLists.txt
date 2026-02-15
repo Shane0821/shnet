@@ -30,7 +30,7 @@ include(FetchContent)
 FetchContent_Declare(
     shlog
     GIT_REPOSITORY https://github.com/Shane0821/logger
-    GIT_TAG c19a92610c7030c63e3726da1a8a0048bb9a435c
+    GIT_TAG b8e68f7b1606367b5a352320fad35b1817f41a9e
 )
 FetchContent_MakeAvailable(shlog)
 
