@@ -64,14 +64,9 @@ void TcpConn::handleIO(uint32_t events) {
         shutdown_on_error();
         return;
     }
-    if (events & EPOLLRDHUP) {
-        close_with_callback();
-        return;
-    }
 
     if (events & EPOLLIN) handleRead();
     if (events & EPOLLOUT) handleWrite();
-    
 }
 
 void TcpConn::handleRead() {
