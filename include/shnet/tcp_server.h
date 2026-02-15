@@ -8,6 +8,7 @@
 #include "tcp_socket.h"
 
 namespace shnet {
+
 class TcpConn;
 
 class TcpServer {
@@ -33,4 +34,5 @@ class TcpServer {
     TcpSocket listen_sk_;
     ConnMap conn_map_;
 };
+
 }

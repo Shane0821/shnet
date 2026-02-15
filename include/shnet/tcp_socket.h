@@ -12,6 +12,7 @@
 #include "shnet/utils/noncopyable.h"
 
 namespace shnet {
+
 class TcpSocket : noncopyable {
    public:
     explicit TcpSocket(int fd);
@@ -50,4 +51,5 @@ class TcpSocket : noncopyable {
 
     int sockfd_;
 };
+
 }  // namespace shnet

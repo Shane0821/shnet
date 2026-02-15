@@ -7,6 +7,7 @@
 #include "shnet/utils/message_buff.h"
 #include "tcp_socket.h"
 namespace shnet {
+
 class TcpConn {
    public:
     using ReadCallback = std::function<void()>;
@@ -54,4 +55,5 @@ class TcpConn {
     bool closed_{false};
     bool shutdown_{false};
 };
+
 }  // namespace shnet
