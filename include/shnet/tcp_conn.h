@@ -21,6 +21,16 @@ class TcpConn {
 
     Message readAll();
     Message readLine();
+
+    // Buffered, non-blocking send.
+    //
+    // Contract:
+    // - On success, returns the number of bytes accepted by the connection (written immediately
+    //   and/or queued into the internal send buffer). Currently this is either 0 (size==0) or `size`.
+    // - On failure, returns a negative errno value (e.g. -ESHUTDOWN, -ENOBUFS, -EPIPE, ...).
+    //
+    // Note: returning `size` does NOT guarantee the peer has received the data; it only means this
+    // connection has taken ownership for delivery.
     ssize_t send(const char* data, size_t size);
 
     void setReadCallback(auto&& cb) { read_cb_ = cb; }

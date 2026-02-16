@@ -154,8 +154,11 @@ ssize_t TcpConn::recv() {
 }
 
 ssize_t TcpConn::send(const char* data, size_t size) {
-    if (!data || size == 0) [[unlikely]] {
+    if (size == 0) [[unlikely]] {
         return 0;
+    }
+    if (!data) [[unlikely]] {
+        return -EINVAL;
     }
     if (closed_ || shutdown_) [[unlikely]] {
         return -ESHUTDOWN;
@@ -164,7 +167,7 @@ ssize_t TcpConn::send(const char* data, size_t size) {
     if (snd_buf_.getFreeSize() < size) [[unlikely]] {
         SHLOG_WARN("send buffer overflow risk on fd {}: free {} < want {}", conn_sk_.fd(),
                    snd_buf_.getFreeSize(), size);
-        return -1;
+        return -ENOBUFS;
     }
 
     if (snd_buf_.writableSize() < size) [[unlikely]] {
@@ -185,10 +188,11 @@ ssize_t TcpConn::send(const char* data, size_t size) {
             snd_buf_.write(data, size);
             enableWrite();
             return size;
-        } 
-        SHLOG_ERROR("send failed on fd {}: {}", conn_sk_.fd(), n);
+        }
+        const int err = errno;
+        SHLOG_ERROR("send failed on fd {}: {}", conn_sk_.fd(), err);
         shutdown_on_error();
-        return n;
+        return -err;
     }
 
     if (n < size) [[unlikely]] {
