@@ -162,6 +162,7 @@ ssize_t TcpConn::send(const char* data, size_t size) {
     // write enabled. append data and wait for the next epoll write event,
     if (snd_buf_.readableSize() > 0) [[unlikely]] {
         snd_buf_.write(data, size);
+        enableWrite();
         return size;
     }
 
