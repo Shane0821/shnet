@@ -100,19 +100,31 @@ void TcpConn::handleRead() {
 }
 
 void TcpConn::handleWrite() {
-    auto n = conn_sk_.send(snd_buf_.readPointer(), snd_buf_.readableSize(), MSG_NOSIGNAL);
+    while (!snd_buf_.empty()) {
+        auto n = conn_sk_.send(snd_buf_.readPointer(), snd_buf_.readableSize(), MSG_NOSIGNAL);
 
-    if (n > 0) [[likely]] {
-        snd_buf_.readCommit(n);
-        if (snd_buf_.empty()) {
-            disableWrite();
+        if (n > 0) [[likely]] {
+            snd_buf_.readCommit(n);
+            continue;
         }
-        return;
+
+        if (n < 0) [[unlikely]] {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // Socket send buffer is full; wait for the next EPOLLOUT.
+                return;
+            }
+            SHLOG_ERROR("handle write failed on fd {}: {}", conn_sk_.fd(), errno);
+            shutdown_on_error();
+            return;
+        }
+
+        // send() returning 0 is unexpected here (len > 0); avoid a busy loop.
+        SHLOG_WARN("send() returned 0 on fd {}: {}", conn_sk_.fd(), n);
+        break;
     }
 
-    if (n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) [[unlikely]] {
-        SHLOG_ERROR("handle write failed on fd {}: {}", conn_sk_.fd(), errno);
-        shutdown_on_error();
+    if (snd_buf_.empty()) {
+        disableWrite();
     }
 }
 
