@@ -13,10 +13,9 @@ class TcpConn;
 
 class TcpServer {
    public:
-    using ConnPtr = std::unique_ptr<TcpConn>;
-    using ConnMap = std::unordered_map<int, ConnPtr>;
+    using ConnMap = std::unordered_map<int, std::shared_ptr<TcpConn>>;
 
-    using NewConnCallback = std::function<void(TcpConn*)>;
+    using NewConnCallback = std::function<void(std::shared_ptr<TcpConn>)>;
 
     static void acceptTrampoline(void* obj, uint32_t events);
 

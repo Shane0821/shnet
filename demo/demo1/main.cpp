@@ -21,10 +21,14 @@ int main(int argc, char* argv[]) {
     EventLoop evloop;
     TcpServer server(&evloop);
 
-    server.start(port, [](TcpConn* conn) {
+    server.start(port, [](std::shared_ptr<TcpConn> conn) {
         SHLOG_INFO("new connection restablished");
 
-        conn->setReadCallback([](TcpConn* conn) {
+        conn->setCloseCallback([](int fd) {
+            SHLOG_INFO("connection fd {} closed", fd);
+        });
+
+        conn->setReadCallback([](std::shared_ptr<TcpConn> conn) {
             auto msg = conn->readAll();
             SHLOG_INFO("received: {}", msg.data_);
             conn->send("HTTP/1.1 200 OK\nContent-Length: 12\n\nHello World!\n", 50);

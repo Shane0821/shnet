@@ -25,10 +25,8 @@ TcpConn::TcpConn(int fd, EventLoop* loop) : conn_sk_(fd), ev_loop_(loop), closed
     }
 }
 
-TcpConn::~TcpConn() { close(); }
-
-void TcpConn::close() {
-    if (closed_) {
+TcpConn::~TcpConn() {     
+    if (closed_) [[unlikely]] {
         return;
     }
     SHLOG_INFO("Tcpconn close: {}", conn_sk_.fd());
@@ -40,9 +38,10 @@ void TcpConn::close() {
     conn_sk_.close();
 }
 
+
 void TcpConn::unregister() {
     if (unregister_cb_) [[likely]] {
-        SHLOG_INFO("unregistering connection fd {} from epoll", conn_sk_.fd());
+        SHLOG_INFO("unregistering connection fd {} from tcp server", conn_sk_.fd());
         unregister_cb_(conn_sk_.fd());
     }
 }
@@ -64,7 +63,7 @@ Message TcpConn::readUntil(char terminator) {
 
 Message TcpConn::readn(size_t n) {
     auto ret = rcv_buf_.getData(n);
-    rcv_buf_.readCommit(n);
+    rcv_buf_.readCommit(ret.size_);
     return ret;
 }
 
@@ -94,7 +93,7 @@ void TcpConn::handleRead() {
     auto n = recv();
     if (n > 0) [[likely]] {
         if (read_cb_) [[likely]] {
-            read_cb_(this);
+            read_cb_(shared_from_this());
         }
         return;
     }

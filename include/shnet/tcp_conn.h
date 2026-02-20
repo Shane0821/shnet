@@ -8,9 +8,9 @@
 #include "tcp_socket.h"
 namespace shnet {
 
-class TcpConn {
+class TcpConn : public std::enable_shared_from_this<TcpConn> {
    public:
-    using ReadCallback = std::function<void(TcpConn *)>;
+    using ReadCallback = std::function<void(std::shared_ptr<TcpConn>)>;
     using CloseCallback = std::function<void(int)>;
     using UnregisterCallback = std::function<void(int)>;
     using IOHandler = std::function<void()>;

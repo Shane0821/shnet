@@ -40,10 +40,10 @@ void TcpServer::handleAccept(uint32_t events) {
             return;
         }
 
-        auto conn = std::make_unique<TcpConn>(conn_fd, ev_loop_);
+        auto conn = std::make_shared<TcpConn>(conn_fd, ev_loop_);
         conn->setUnregisterCallback([this](int fd) { conn_map_.erase(fd); });
         if (new_conn_cb_) [[likely]] {
-            new_conn_cb_(conn.get());
+            new_conn_cb_(conn);
         }
         conn_map_.emplace(conn_fd, std::move(conn));
     }
