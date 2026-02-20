@@ -46,6 +46,13 @@ class MessageBuffer {
 
     void readCommit(std::size_t size) { read_pos_ += size; }
 
+    Message getData(size_t n) { 
+        if (n > readableSize()) {
+            return {nullptr, 0};
+        }
+        return {readPointer(), n}; 
+    }
+
     Message getAllData() { return {readPointer(), readableSize()}; }
 
     Message getDataUntil(char terminator = 0) {

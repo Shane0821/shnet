@@ -53,12 +53,18 @@ Message TcpConn::readAll() {
     return ret;
 }
 
-Message TcpConn::readLine() {
-    auto ret = rcv_buf_.getDataUntil('\n');
+Message TcpConn::readUntil(char terminator) {
+    auto ret = rcv_buf_.getDataUntil(terminator);
     if (ret.data_ != nullptr) {
         // Consume the delimiter as well while returning line content only.
         rcv_buf_.readCommit(ret.size_ + 1);
     }
+    return ret;
+}
+
+Message TcpConn::readn(size_t n) {
+    auto ret = rcv_buf_.getData(n);
+    rcv_buf_.readCommit(n);
     return ret;
 }
 

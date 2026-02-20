@@ -20,7 +20,8 @@ class TcpConn {
     ~TcpConn();
 
     Message readAll();
-    Message readLine();
+    Message readUntil(char terminator);
+    Message readn(size_t n);
 
     // Buffered, non-blocking send.
     //
