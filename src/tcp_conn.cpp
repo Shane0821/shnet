@@ -88,7 +88,7 @@ void TcpConn::handleRead() {
     auto n = recv();
     if (n > 0) [[likely]] {
         if (read_cb_) [[likely]] {
-            read_cb_();
+            read_cb_(this);
         }
         return;
     }

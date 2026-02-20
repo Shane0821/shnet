@@ -10,7 +10,7 @@ namespace shnet {
 
 class TcpConn {
    public:
-    using ReadCallback = std::function<void()>;
+    using ReadCallback = std::function<void(TcpConn *)>;
     using CloseCallback = std::function<void(int)>;
     using UnregisterCallback = std::function<void(int)>;
     using IOHandler = std::function<void()>;
