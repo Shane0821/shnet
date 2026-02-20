@@ -21,7 +21,7 @@ TcpConn::TcpConn(int fd, EventLoop* loop) : conn_sk_(fd), ev_loop_(loop), closed
     io_handler_ = EventLoop::EventHandler{this, &ioTrampoline};
     if (ev_loop_->addEvent(fd, EPOLLIN | EPOLLRDHUP, &io_handler_) < 0) [[unlikely]] {
         SHLOG_ERROR("failed to register connection fd {} to epoll: {}", fd, errno);
-        shutdown_on_error();
+        close();
     }
 }
 
@@ -29,21 +29,50 @@ TcpConn::~TcpConn() {
     if (closed_) [[unlikely]] {
         return;
     }
-    SHLOG_INFO("Tcpconn close: {}", conn_sk_.fd());
+    const int fd = conn_sk_.fd();
+    SHLOG_INFO("Tcpconn close: {}", fd);
     closed_ = true;
-    ev_loop_->delEvent(conn_sk_.fd());
+    ev_loop_->delEvent(fd);
     if (close_cb_) [[likely]] {
-        close_cb_(conn_sk_.fd());
+        close_cb_(fd);
     }
     conn_sk_.close();
 }
 
 
 void TcpConn::unregister() {
-    if (unregister_cb_) [[likely]] {
-        SHLOG_INFO("unregistering connection fd {} from tcp server", conn_sk_.fd());
-        unregister_cb_(conn_sk_.fd());
+    if (!unregister_cb_) [[unlikely]] {
+        return;
     }
+    if (unregistered_) [[unlikely]] {
+        return;
+    }
+    unregistered_ = true;
+    SHLOG_INFO("unregistering connection fd {} from tcp server", conn_sk_.fd());
+    unregister_cb_(conn_sk_.fd());
+}
+
+void TcpConn::close() {
+    if (closed_) [[unlikely]] {
+        return;
+    }
+
+    const int fd = conn_sk_.fd();
+    SHLOG_INFO("TcpConn close: {}", fd);
+
+    closed_ = true;
+
+    // Ensure epoll no longer references our in-object handler pointer.
+    ev_loop_->delEvent(fd);
+
+    // Drop server ownership (may destroy this object if nobody else holds it).
+    unregister();
+
+    if (close_cb_) {
+        close_cb_(fd);
+    }
+
+    conn_sk_.close();
 }
 
 Message TcpConn::readAll() {
@@ -72,39 +101,81 @@ void TcpConn::handleIO(uint32_t events) {
         return;
     }
 
+    // Keep this connection alive through shared_from_this()
+    auto self_ptr = shared_from_this();
+
     if (events & (EPOLLERR | EPOLLHUP)) [[unlikely]] {
         SHLOG_ERROR("connection fd {} got error/hup events: {}", conn_sk_.fd(), events);
-        shutdown_on_error();
+        close();
         return;
     }
 
-    if (events & EPOLLRDHUP) [[unlikely]] {
+    const bool got_rdhup = (events & EPOLLRDHUP);
+    if (got_rdhup) [[unlikely]] {
         SHLOG_INFO("connection fd {} got rdhup events: {}", conn_sk_.fd(), events);
-        // TODO handle epoll rd hup
-        unregister();
-        return;
+        peer_shutdown_ = true;
     }
 
-    if (events & EPOLLIN) handleRead();
+    // Drain reads on RDHUP too (there may be remaining bytes).
+    if ((events & EPOLLIN) || got_rdhup) handleRead();
     if (events & EPOLLOUT) handleWrite();
+
+    // If peer won't send more and we have nothing left to do, close.
+    if (peer_shutdown_ && rcv_buf_.readableSize() == 0 && snd_buf_.empty()) {
+        close();
+    }
 }
 
 void TcpConn::handleRead() {
-    auto n = recv();
-    if (n > 0) [[likely]] {
-        if (read_cb_) [[likely]] {
-            read_cb_(shared_from_this());
-        }
+    if (closed_) [[unlikely]] {
+        SHLOG_WARN("handle read on closed connection fd {}", conn_sk_.fd());
         return;
     }
 
-    if (n < 0 && (errno != EAGAIN && errno != EWOULDBLOCK)) [[unlikely]] {
-        SHLOG_ERROR("handle read failed on fd {}: {}", conn_sk_.fd(), errno);
-        shutdown_on_error();
+    for (;;) {
+        size_t len = rcv_buf_.writableSize();
+        if (len == 0) [[unlikely]] {
+            rcv_buf_.shrink();
+            len = rcv_buf_.writableSize();
+            if (len == 0) {
+                break;  // buffer full; wait for application to consume
+            }
+        }
+
+        const ssize_t n = conn_sk_.read(rcv_buf_.writePointer(), len);
+        if (n > 0) [[likely]] {
+            rcv_buf_.writeCommit(static_cast<size_t>(n));
+            continue;  // try to drain until EAGAIN
+        }
+
+        if (n == 0) [[unlikely]] {
+            // Peer performed FIN (half-close); we may still write until we decide to close.
+            peer_shutdown_ = true;
+            break;
+        }
+
+        const int err = errno;
+        if (err == EAGAIN || err == EWOULDBLOCK) {
+            break;
+        }
+
+        SHLOG_ERROR("handle read failed on fd {}: {}", conn_sk_.fd(), err);
+        close();
+        return;
+    }
+
+    if (rcv_buf_.readableSize() > 0) [[likely]] {
+        if (read_cb_) [[likely]] {
+            read_cb_(shared_from_this());
+        }
     }
 }
 
 void TcpConn::handleWrite() {
+    if (closed_) [[unlikely]] {
+        SHLOG_WARN("handle write on closed connection fd {}", conn_sk_.fd());
+        return;
+    }
     while (!snd_buf_.empty()) {
         auto n = conn_sk_.send(snd_buf_.readPointer(), snd_buf_.readableSize(), MSG_NOSIGNAL);
 
@@ -119,7 +190,7 @@ void TcpConn::handleWrite() {
                 return;
             }
             SHLOG_ERROR("handle write failed on fd {}: {}", conn_sk_.fd(), errno);
-            shutdown_on_error();
+            close();
             return;
         }
 
@@ -133,31 +204,6 @@ void TcpConn::handleWrite() {
     }
 }
 
-// returns size of data waiting for processing or errno
-ssize_t TcpConn::recv() {
-    if (rcv_buf_.full()) [[unlikely]] {
-        return rcv_buf_.readableSize();
-    }
-
-    size_t len = rcv_buf_.writableSize();
-    if (len == 0) [[unlikely]] {
-        rcv_buf_.shrink();
-        len = rcv_buf_.writableSize();
-    }
-
-    ssize_t ret = conn_sk_.read(rcv_buf_.writePointer(), len);
-    if (ret < 0) [[unlikely]] {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            return rcv_buf_.readableSize();
-        }
-        SHLOG_ERROR("error read: {}", errno);
-        return -errno;
-    }
-
-    rcv_buf_.writeCommit(ret);
-    return rcv_buf_.readableSize();
-}
-
 ssize_t TcpConn::send(const char* data, size_t size) {
     if (size == 0) [[unlikely]] {
         return 0;
@@ -165,7 +211,7 @@ ssize_t TcpConn::send(const char* data, size_t size) {
     if (!data) [[unlikely]] {
         return -EINVAL;
     }
-    if (closed_ || shutdown_) [[unlikely]] {
+    if (closed_) [[unlikely]] {
         return -ESHUTDOWN;
     }
 
@@ -196,7 +242,7 @@ ssize_t TcpConn::send(const char* data, size_t size) {
         }
         const int err = errno;
         SHLOG_ERROR("send failed on fd {}: {}", conn_sk_.fd(), err);
-        shutdown_on_error();
+        close();
         return -err;
     }
 
@@ -209,6 +255,9 @@ ssize_t TcpConn::send(const char* data, size_t size) {
 }
 
 void TcpConn::disableWrite() {
+    if (closed_) [[unlikely]] {
+        return;
+    }
     if (ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLRDHUP, &io_handler_) < 0)
         [[unlikely]] {
         SHLOG_ERROR("failed to disable EPOLLOUT for fd {}: {}", conn_sk_.fd(), errno);
@@ -216,19 +265,13 @@ void TcpConn::disableWrite() {
 }
 
 void TcpConn::enableWrite() {
+    if (closed_) [[unlikely]] {
+        return;
+    }
     if (ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLOUT | EPOLLRDHUP, &io_handler_) <
         0) [[unlikely]] {
         SHLOG_ERROR("failed to enable EPOLLOUT for fd {}: {}", conn_sk_.fd(), errno);
     }
-}
-
-void TcpConn::shutdown_on_error() {
-    if (closed_ || shutdown_) [[unlikely]] {
-        return;
-    }
-    shutdown_ = true;
-    conn_sk_.shutdown();
-    disableWrite();
 }
 
 }  // namespace shnet

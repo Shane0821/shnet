@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include <string>
 
 #include "event_loop.h"
@@ -44,8 +45,6 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     void handleRead();
     void handleWrite();
 
-    ssize_t recv();
-    void shutdown_on_error();
     void close();
     void unregister();
 
@@ -64,7 +63,8 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     UnregisterCallback unregister_cb_;
     TcpSocket conn_sk_;
     bool closed_{false};
-    bool shutdown_{false};
+    bool peer_shutdown_{false};   // peer has shutdown its write side (FIN/RDHUP/read==0)
+    bool unregistered_{false};    // unregister callback invoked
 };
 
 }  // namespace shnet
