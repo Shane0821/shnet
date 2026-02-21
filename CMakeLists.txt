@@ -29,11 +29,17 @@ set(CMAKE_DIR "${ROOT_DIR}/cmake")
 include(FetchContent)
 FetchContent_Declare(
     shlog
-    GIT_REPOSITORY https://github.com/Shane0821/logger
+    GIT_REPOSITORY https://github.com/Shane0821/shlog
     GIT_TAG b8e68f7b1606367b5a352320fad35b1817f41a9e
 )
 FetchContent_MakeAvailable(shlog)
 
+FetchContent_Declare(
+    shcoro
+    GIT_REPOSITORY https://github.com/Shane0821/shcoro
+    GIT_TAG c259f161258394dbbb5187789f942bf6cdc8ded0
+)
+FetchContent_MakeAvailable(shcoro)
 
 # ============================
 # Pakcages
