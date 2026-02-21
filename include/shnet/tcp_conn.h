@@ -11,10 +11,9 @@ namespace shnet {
 
 class TcpConn : public std::enable_shared_from_this<TcpConn> {
    public:
-    using ReadCallback = std::function<void(std::shared_ptr<TcpConn>)>;
-    using CloseCallback = std::function<void(int)>;
+    using ReadCallback = void(*)(std::shared_ptr<TcpConn>);
+    using CloseCallback = void(*)(int);
     using UnregisterCallback = std::function<void(int)>;
-    using IOHandler = std::function<void()>;
 
     static void ioTrampoline(void*, uint32_t);
     TcpConn(int fd, EventLoop* evLoop);
