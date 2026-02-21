@@ -25,7 +25,7 @@ TcpConn::TcpConn(int fd, EventLoop* loop) : conn_sk_(fd), ev_loop_(loop), closed
     }
 }
 
-TcpConn::~TcpConn() {     
+TcpConn::~TcpConn() {
     if (closed_) [[unlikely]] {
         return;
     }
@@ -39,17 +39,13 @@ TcpConn::~TcpConn() {
     conn_sk_.close();
 }
 
-
-void TcpConn::unregister() {
-    if (!unregister_cb_) [[unlikely]] {
+void TcpConn::removeFromServer() {
+    if (removed_) [[unlikely]] {
         return;
     }
-    if (unregistered_) [[unlikely]] {
-        return;
-    }
-    unregistered_ = true;
-    SHLOG_INFO("unregistering connection fd {} from tcp server", conn_sk_.fd());
-    unregister_cb_(conn_sk_.fd());
+    removed_ = true;
+    SHLOG_INFO("removing connection fd {} from tcp server", conn_sk_.fd());
+    remove_conn_handler_(conn_sk_.fd());
 }
 
 void TcpConn::close() {
@@ -66,7 +62,7 @@ void TcpConn::close() {
     ev_loop_->delEvent(fd);
 
     // Drop server ownership (may destroy this object if nobody else holds it).
-    unregister();
+    removeFromServer();
 
     if (close_cb_) {
         close_cb_(fd);
@@ -149,7 +145,8 @@ void TcpConn::handleRead() {
         }
 
         if (n == 0) [[unlikely]] {
-            // Peer performed FIN (half-close); we may still write until we decide to close.
+            // Peer performed FIN (half-close); we may still write until we decide to
+            // close.
             peer_shutdown_ = true;
             break;
         }
@@ -177,7 +174,8 @@ void TcpConn::handleWrite() {
         return;
     }
     while (!snd_buf_.empty()) {
-        auto n = conn_sk_.send(snd_buf_.readPointer(), snd_buf_.readableSize(), MSG_NOSIGNAL);
+        auto n =
+            conn_sk_.send(snd_buf_.readPointer(), snd_buf_.readableSize(), MSG_NOSIGNAL);
 
         if (n > 0) [[likely]] {
             snd_buf_.readCommit(n);

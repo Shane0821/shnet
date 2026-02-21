@@ -12,6 +12,10 @@ inline void TcpServer::acceptTrampoline(void* obj, uint32_t events) {
     static_cast<TcpServer*>(obj)->handleAccept(events);
 }
 
+inline void TcpServer::removeConnTrampoline(void* obj, int fd) {
+    static_cast<TcpServer*>(obj)->removeConn(fd);
+}
+
 TcpServer::TcpServer(EventLoop* loop)
     : ev_loop_(loop), listen_sk_([] {
           int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -23,6 +27,11 @@ TcpServer::TcpServer(EventLoop* loop)
       }()) {}
 
 TcpServer::~TcpServer() {}
+
+
+inline void TcpServer::removeConn(int fd) {
+    conn_map_.erase(fd);
+}
 
 void TcpServer::handleAccept(uint32_t events) {
     if (events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) [[unlikely]] {
@@ -41,7 +50,7 @@ void TcpServer::handleAccept(uint32_t events) {
         }
 
         auto conn = std::make_shared<TcpConn>(conn_fd, ev_loop_);
-        conn->setUnregisterCallback([this](int fd) { conn_map_.erase(fd); });
+        conn->setRemoveConnHandler({this, &removeConnTrampoline});
         if (new_conn_cb_) [[likely]] {
             new_conn_cb_(conn);
         }

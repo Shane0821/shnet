@@ -15,9 +15,10 @@ class TcpServer {
    public:
     using ConnMap = std::unordered_map<int, std::shared_ptr<TcpConn>>;
 
-    using NewConnCallback = void(*)(std::shared_ptr<TcpConn>);
+    using NewConnCallback = void (*)(std::shared_ptr<TcpConn>);
 
     static void acceptTrampoline(void* obj, uint32_t events);
+    static void removeConnTrampoline(void* obj, int fd);
 
     TcpServer(EventLoop*);
     ~TcpServer();
@@ -26,6 +27,7 @@ class TcpServer {
 
    private:
     void handleAccept(uint32_t);
+    void removeConn(int fd);
 
     EventLoop* ev_loop_;
     NewConnCallback new_conn_cb_;
@@ -34,4 +36,4 @@ class TcpServer {
     ConnMap conn_map_;
 };
 
-}
+}  // namespace shnet

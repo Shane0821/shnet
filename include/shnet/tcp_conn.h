@@ -10,12 +10,12 @@
 namespace shnet {
 
 class TcpConn : public std::enable_shared_from_this<TcpConn> {
-   public:
-    using ReadCallback = void(*)(std::shared_ptr<TcpConn>);
-    using CloseCallback = void(*)(int);
-    using UnregisterCallback = std::function<void(int)>;
+    friend class TcpServer;
 
-    static void ioTrampoline(void*, uint32_t);
+   public:
+    using ReadCallback = void (*)(std::shared_ptr<TcpConn>);
+    using CloseCallback = void (*)(int);
+
     TcpConn(int fd, EventLoop* evLoop);
     ~TcpConn();
 
@@ -26,26 +26,43 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     // Buffered, non-blocking send.
     //
     // Contract:
-    // - On success, returns the number of bytes accepted by the connection (written immediately
-    //   and/or queued into the internal send buffer). Currently this is either 0 (size==0) or `size`.
-    // - On failure, returns a negative errno value (e.g. -ESHUTDOWN, -ENOBUFS, -EPIPE, ...).
+    // - On success, returns the number of bytes accepted by the connection (written
+    // immediately
+    //   and/or queued into the internal send buffer). Currently this is either 0
+    //   (size==0) or `size`.
+    // - On failure, returns a negative errno value (e.g. -ESHUTDOWN, -ENOBUFS, -EPIPE,
+    // ...).
     //
-    // Note: returning `size` does NOT guarantee the peer has received the data; it only means this
-    // connection has taken ownership for delivery.
+    // Note: returning `size` does NOT guarantee the peer has received the data; it only
+    // means this connection has taken ownership for delivery.
     ssize_t send(const char* data, size_t size);
 
-    void setReadCallback(auto&& cb) { read_cb_ = cb; }
-    void setCloseCallback(auto&& cb) { close_cb_ = cb; }
-    void setUnregisterCallback(auto&& cb) { unregister_cb_ = cb; }
+    void setReadCallback(ReadCallback cb) { read_cb_ = cb; }
+    void setCloseCallback(CloseCallback cb) { close_cb_ = cb; }
 
    private:
+    struct RemoveConnHandler {
+        using Callback = void (*)(void* obj, int fd);
+
+        inline void operator()(int fd) const noexcept { cb(obj, fd); }
+
+        void* obj;
+        Callback cb;
+    };
+
+    static void ioTrampoline(void*, uint32_t);
+
+    void setRemoveConnHandler(RemoveConnHandler handler) {
+        remove_conn_handler_ = handler;
+    }
+
     void handleIO(uint32_t);
 
     void handleRead();
     void handleWrite();
 
     void close();
-    void unregister();
+    void removeFromServer();
 
     void enableWrite();
     void disableWrite();
@@ -59,11 +76,11 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     MessageBuffer snd_buf_;
     ReadCallback read_cb_;
     CloseCallback close_cb_;
-    UnregisterCallback unregister_cb_;
+    RemoveConnHandler remove_conn_handler_;
     TcpSocket conn_sk_;
     bool closed_{false};
-    bool peer_shutdown_{false};   // peer has shutdown its write side (FIN/RDHUP/read==0)
-    bool unregistered_{false};    // unregister callback invoked
+    bool peer_shutdown_{false};  // peer has shutdown its write side (FIN/RDHUP/read==0)
+    bool removed_{false};        // remove callback invoked
 };
 
 }  // namespace shnet
