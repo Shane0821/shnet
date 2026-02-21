@@ -61,6 +61,7 @@ void TcpServer::handleAccept(uint32_t events) {
 void TcpServer::start(uint16_t port, NewConnCallback cb) {
     listen_sk_.setNonBlocking();
     listen_sk_.setReusable();
+    listen_sk_.setKeepAlive();
 
     int ret = listen_sk_.bind(port);
     if (ret < 0) [[unlikely]] {
