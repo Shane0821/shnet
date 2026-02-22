@@ -37,7 +37,7 @@ FetchContent_MakeAvailable(shlog)
 FetchContent_Declare(
     shcoro
     GIT_REPOSITORY https://github.com/Shane0821/shcoro
-    GIT_TAG c259f161258394dbbb5187789f942bf6cdc8ded0
+    GIT_TAG f61ba11ada79d8c6929c6427e97d4b981e840f3c
 )
 FetchContent_MakeAvailable(shcoro)
 
