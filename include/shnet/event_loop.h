@@ -5,6 +5,7 @@
 #include <functional>
 
 #include "shlog/logger.h"
+#include "shcoro/stackless/fifo_scheduler.hpp"
 
 namespace shnet {
 
@@ -34,10 +35,13 @@ class EventLoop {
 
     void stop();
 
+    shcoro::FIFOScheduler& getScheduler() { return coro_scheduler_; }
+
    private:
     static const int MAX_EVENTS = 1 << 10;
 
     int epfd_;
     bool running_;
+    shcoro::FIFOScheduler coro_scheduler_; 
 };
 }  // namespace shnet

@@ -5,6 +5,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(-fcoroutines)
+elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    add_compile_options(/await)
+endif()
+
 # Options to build demo and test
 option(SHNET_BUILD_DEMO "Build the demo" OFF)
 option(SHNET_BUILD_TEST "Build the test" OFF)
@@ -37,7 +43,7 @@ FetchContent_MakeAvailable(shlog)
 FetchContent_Declare(
     shcoro
     GIT_REPOSITORY https://github.com/Shane0821/shcoro
-    GIT_TAG f61ba11ada79d8c6929c6427e97d4b981e840f3c
+    GIT_TAG b2e18f22a372d79ceb497d696228963224ad4762
 )
 FetchContent_MakeAvailable(shcoro)
 

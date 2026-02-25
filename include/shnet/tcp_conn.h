@@ -5,8 +5,10 @@
 #include <string>
 
 #include "event_loop.h"
+#include "shcoro/stackless/async.hpp"
 #include "shnet/utils/message_buff.h"
 #include "tcp_socket.h"
+
 namespace shnet {
 
 class TcpConn : public std::enable_shared_from_this<TcpConn> {
@@ -14,6 +16,7 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
 
    public:
     using ReadCallback = void (*)(std::shared_ptr<TcpConn>);
+    using ReadAsyncCallback = shcoro::Async<void> (*)(std::shared_ptr<TcpConn>);
     using CloseCallback = void (*)(int);
 
     TcpConn(int fd, EventLoop* evLoop);
@@ -22,22 +25,26 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     Message readAll();
     Message readUntil(char terminator);
     Message readn(size_t n);
+    void setReadCallback(ReadCallback cb);
+
+    shcoro::Async<Message> readnAsync(size_t n);
+    void setReadAsyncCallback(ReadAsyncCallback cb);
 
     // Buffered, non-blocking send.
     //
     // Contract:
-    // - On success, returns the number of bytes accepted by the connection (written
-    // immediately
-    //   and/or queued into the internal send buffer). Currently this is either 0
-    //   (size==0) or `size`.
+    // - On success, returns 0.
     // - On failure, returns a negative errno value (e.g. -ESHUTDOWN, -ENOBUFS, -EPIPE,
     // ...).
     //
-    // Note: returning `size` does NOT guarantee the peer has received the data; it only
+    // Note: returning 0 does NOT guarantee the peer has received the data; it only
     // means this connection has taken ownership for delivery.
-    ssize_t send(const char* data, size_t size);
+    int send(const char* data, size_t size);
+    int sendBlocking(const char* data, size_t size);
 
-    void setReadCallback(ReadCallback cb) { read_cb_ = cb; }
+    bool sendAsyncShouldYield(size_t size) { return snd_buf_.getFreeSize() < size; }
+    shcoro::Async<int> sendAsync(const char* data, size_t size);
+
     void setCloseCallback(CloseCallback cb) { close_cb_ = cb; }
 
    private:
@@ -75,6 +82,7 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     MessageBuffer rcv_buf_;
     MessageBuffer snd_buf_;
     ReadCallback read_cb_;
+    ReadAsyncCallback read_async_cb_;
     CloseCallback close_cb_;
     RemoveConnHandler remove_conn_handler_;
     TcpSocket conn_sk_;

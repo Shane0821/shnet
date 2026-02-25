@@ -80,6 +80,8 @@ void EventLoop::run() {
             }
             (*handler)(events[i].events);
         }
+        
+        coro_scheduler_.run_once();
     }
 }
 

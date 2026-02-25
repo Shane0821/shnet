@@ -7,6 +7,7 @@
 
 #include <cerrno>
 
+#include "shcoro/stackless/utility.hpp"
 #include "shnet/event_loop.h"
 
 namespace shnet {
@@ -92,6 +93,15 @@ Message TcpConn::readn(size_t n) {
     return ret;
 }
 
+shcoro::Async<Message> TcpConn::readnAsync(size_t n) {
+    while (rcv_buf_.readableSize() < n) {
+        co_await shcoro::FIFOAwaiter{};
+    }
+    auto ret = rcv_buf_.getData(n);
+    rcv_buf_.readCommit(ret.size_);
+    co_return ret;
+}
+
 void TcpConn::handleIO(uint32_t events) {
     if (closed_) [[unlikely]] {
         return;
@@ -165,6 +175,9 @@ void TcpConn::handleRead() {
         if (read_cb_) [[likely]] {
             read_cb_(shared_from_this());
         }
+        if (read_async_cb_) [[likely]] {
+            shcoro::spawn_async_detached(read_async_cb_(shared_from_this()), ev_loop_->getScheduler());
+        }
     }
 }
 
@@ -202,7 +215,51 @@ void TcpConn::handleWrite() {
     }
 }
 
-ssize_t TcpConn::send(const char* data, size_t size) {
+int TcpConn::sendBlocking(const char* data, size_t size) {
+    if (size == 0) [[unlikely]] {
+        return 0;
+    }
+    if (!data) [[unlikely]] {
+        return -EINVAL;
+    }
+    if (closed_) [[unlikely]] {
+        return -ESHUTDOWN;
+    }
+
+    // drain send buffer
+    while (!snd_buf_.empty()) {
+        auto n =
+            conn_sk_.send(snd_buf_.readPointer(), snd_buf_.readableSize(), MSG_NOSIGNAL);
+        if (n < 0) [[unlikely]] {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                continue;
+            }
+            SHLOG_ERROR("send blocking failed on fd {}: {}", conn_sk_.fd(), errno);
+            return -errno;
+        }
+        snd_buf_.readCommit(n);
+    }
+
+    disableWrite();
+
+    // send remaining data
+    auto ret = size;
+    while (size > 0) {
+        auto n = conn_sk_.send(data, size, MSG_NOSIGNAL);
+        if (n < 0) [[unlikely]] {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                continue;
+            }
+            SHLOG_ERROR("send blocking failed on fd {}: {}", conn_sk_.fd(), errno);
+            return -errno;
+        }
+        data += static_cast<size_t>(n);
+        size -= static_cast<size_t>(n);
+    }
+    return 0;
+}
+
+int TcpConn::send(const char* data, size_t size) {
     if (size == 0) [[unlikely]] {
         return 0;
     }
@@ -227,7 +284,7 @@ ssize_t TcpConn::send(const char* data, size_t size) {
     if (snd_buf_.readableSize() > 0) [[unlikely]] {
         snd_buf_.write(data, size);
         enableWrite();
-        return size;
+        return 0;
     }
 
     auto n = conn_sk_.send(data, size, MSG_NOSIGNAL);
@@ -236,7 +293,7 @@ ssize_t TcpConn::send(const char* data, size_t size) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             snd_buf_.write(data, size);
             enableWrite();
-            return size;
+            return 0;
         }
         const int err = errno;
         SHLOG_ERROR("send failed on fd {}: {}", conn_sk_.fd(), err);
@@ -249,7 +306,55 @@ ssize_t TcpConn::send(const char* data, size_t size) {
         enableWrite();
     }
 
-    return size;
+    return 0;
+}
+
+shcoro::Async<int> TcpConn::sendAsync(const char* data, size_t size) {
+    if (size == 0) [[unlikely]] {
+        co_return 0;
+    }
+    if (!data) [[unlikely]] {
+        co_return -EINVAL;
+    }
+    if (closed_) [[unlikely]] {
+        co_return -ESHUTDOWN;
+    }
+
+    while (snd_buf_.getFreeSize() < size) {
+        co_await shcoro::FIFOAwaiter{};
+    }
+
+    if (snd_buf_.writableSize() < size) [[unlikely]] {
+        snd_buf_.shrink();
+    }
+
+    // write enabled. append data and wait for the next epoll write event,
+    if (snd_buf_.readableSize() > 0) [[unlikely]] {
+        snd_buf_.write(data, size);
+        enableWrite();
+        co_return 0;
+    }
+
+    auto n = conn_sk_.send(data, size, MSG_NOSIGNAL);
+
+    if (n < 0) [[unlikely]] {
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            snd_buf_.write(data, size);
+            enableWrite();
+            co_return 0;
+        }
+        const int err = errno;
+        SHLOG_ERROR("send failed on fd {}: {}", conn_sk_.fd(), err);
+        close();
+        co_return -err;
+    }
+
+    if (n < size) [[unlikely]] {
+        snd_buf_.write(data + n, size - n);
+        enableWrite();
+    }
+
+    co_return 0;
 }
 
 void TcpConn::disableWrite() {
@@ -270,6 +375,20 @@ void TcpConn::enableWrite() {
         0) [[unlikely]] {
         SHLOG_ERROR("failed to enable EPOLLOUT for fd {}: {}", conn_sk_.fd(), errno);
     }
+}
+
+void TcpConn::setReadCallback(ReadCallback cb) {
+    if (read_async_cb_) [[unlikely]] {
+        return;
+    }
+    read_cb_ = cb;
+}
+
+void TcpConn::setReadAsyncCallback(ReadAsyncCallback cb) {
+    if (read_cb_) [[unlikely]] {
+        return;
+    }
+    read_async_cb_ = cb;
 }
 
 }  // namespace shnet

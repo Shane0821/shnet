@@ -14,4 +14,4 @@ set_target_properties(shnet PROPERTIES
 
 aux_source_directory(${CMAKE_CURRENT_LIST_DIR} SHNET_SRC)
 target_sources(shnet PRIVATE ${SHNET_SRC})
-target_link_libraries(shnet PUBLIC shlog::shlog)
+target_link_libraries(shnet PUBLIC shlog::shlog shcoro::shcoro)
