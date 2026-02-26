@@ -93,15 +93,6 @@ Message TcpConn::readn(size_t n) {
     return ret;
 }
 
-shcoro::Async<Message> TcpConn::readnAsync(size_t n) {
-    while (rcv_buf_.readableSize() < n) {
-        co_await shcoro::FIFOAwaiter{};
-    }
-    auto ret = rcv_buf_.getData(n);
-    rcv_buf_.readCommit(ret.size_);
-    co_return ret;
-}
-
 void TcpConn::handleIO(uint32_t events) {
     if (closed_) [[unlikely]] {
         return;

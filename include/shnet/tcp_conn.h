@@ -25,9 +25,8 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     Message readAll();
     Message readUntil(char terminator);
     Message readn(size_t n);
+    
     void setReadCallback(ReadCallback cb);
-
-    shcoro::Async<Message> readnAsync(size_t n);
     void setReadAsyncCallback(ReadAsyncCallback cb);
 
     // Buffered, non-blocking send.
