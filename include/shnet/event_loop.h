@@ -6,6 +6,7 @@
 
 #include "shlog/logger.h"
 #include "shcoro/stackless/fifo_scheduler.hpp"
+#include "shcoro/stackless/utility.hpp"
 
 namespace shnet {
 
