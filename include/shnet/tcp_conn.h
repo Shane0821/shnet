@@ -44,6 +44,8 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
 
     void setCloseCallback(CloseCallback cb) { close_cb_ = cb; }
 
+    EventLoop* getEventLoop() const { return ev_loop_; }
+
    private:
     struct RemoveConnHandler {
         using Callback = void (*)(void* obj, int fd);
