@@ -155,9 +155,7 @@ void TcpConn::handleRead() {
         while (rcv_buf_.readableSize() > 0) {
             int ret = read_cb_(shared_from_this());
             if (ret < 0) [[unlikely]] {
-                SHLOG_ERROR("read callback failed on fd {}: {}", conn_sk_.fd(), ret);
-                close();
-                return;
+                break;
             }
         }
     }
