@@ -20,7 +20,7 @@ TcpConn::TcpConn(int fd, EventLoop* loop) : conn_sk_(fd), ev_loop_(loop), closed
     conn_sk_.setNonBlocking();
     conn_sk_.setKeepAlive();
     io_handler_ = EventLoop::EventHandler{this, &ioTrampoline};
-    if (ev_loop_->addEvent(fd, EPOLLIN | EPOLLRDHUP, &io_handler_) < 0) [[unlikely]] {
+    if (ev_loop_->addEvent(fd, EPOLLIN, &io_handler_) < 0) [[unlikely]] {
         SHLOG_ERROR("failed to register connection fd {} to epoll: {}", fd, errno);
         close();
     }
@@ -98,8 +98,6 @@ void TcpConn::handleIO(uint32_t events) {
         return;
     }
 
-    // Keep this connection alive through shared_from_this()
-    auto self_ptr = shared_from_this();
 
     if (events & (EPOLLERR | EPOLLHUP)) [[unlikely]] {
         SHLOG_ERROR("connection fd {} got error/hup events: {}", conn_sk_.fd(), events);
@@ -107,20 +105,10 @@ void TcpConn::handleIO(uint32_t events) {
         return;
     }
 
-    const bool got_rdhup = (events & EPOLLRDHUP);
-    if (got_rdhup) [[unlikely]] {
-        SHLOG_INFO("connection fd {} got rdhup events: {}", conn_sk_.fd(), events);
-        peer_shutdown_ = true;
-    }
-
-    // Drain reads on RDHUP too (there may be remaining bytes).
-    if ((events & EPOLLIN) || got_rdhup) handleRead();
+    // Keep this connection alive through shared_from_this()
+    auto self_ptr = shared_from_this();
+    if (events & EPOLLIN) handleRead();
     if (events & EPOLLOUT) handleWrite();
-
-    // If peer won't send more and we have nothing left to do, close.
-    if (peer_shutdown_ && rcv_buf_.readableSize() == 0 && snd_buf_.empty()) {
-        close();
-    }
 }
 
 void TcpConn::handleRead() {
@@ -144,7 +132,11 @@ void TcpConn::handleRead() {
         if (err == EAGAIN || err == EWOULDBLOCK) {
             return;
         }
-        SHLOG_ERROR("handle read failed on fd {}: {}", conn_sk_.fd(), err);
+        if (n < 0) {
+            SHLOG_ERROR("handle read failed on fd {}: {}", conn_sk_.fd(), err);
+        } else {
+            SHLOG_INFO("peer reset connection on fd {}", conn_sk_.fd());
+        }
         close();
         return;
     }
@@ -341,7 +333,7 @@ void TcpConn::disableWrite() {
     if (closed_) [[unlikely]] {
         return;
     }
-    if (ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLRDHUP, &io_handler_) < 0)
+    if (ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN, &io_handler_) < 0)
         [[unlikely]] {
         SHLOG_ERROR("failed to disable EPOLLOUT for fd {}: {}", conn_sk_.fd(), errno);
     }
@@ -351,7 +343,7 @@ void TcpConn::enableWrite() {
     if (closed_) [[unlikely]] {
         return;
     }
-    if (ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLOUT | EPOLLRDHUP, &io_handler_) <
+    if (ev_loop_->modEvent(conn_sk_.fd(), EPOLLIN | EPOLLOUT, &io_handler_) <
         0) [[unlikely]] {
         SHLOG_ERROR("failed to enable EPOLLOUT for fd {}: {}", conn_sk_.fd(), errno);
     }
