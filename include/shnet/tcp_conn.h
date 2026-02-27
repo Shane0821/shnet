@@ -15,8 +15,7 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     friend class TcpServer;
 
    public:
-    using ReadCallback = void (*)(std::shared_ptr<TcpConn>);
-    using ReadAsyncCallback = shcoro::Async<void> (*)(std::shared_ptr<TcpConn>);
+    using ReadCallback = int (*)(std::shared_ptr<TcpConn>);
     using CloseCallback = void (*)(int);
 
     TcpConn(int fd, EventLoop* evLoop);
@@ -27,7 +26,6 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     Message readn(size_t n);
     
     void setReadCallback(ReadCallback cb);
-    void setReadAsyncCallback(ReadAsyncCallback cb);
 
     // Buffered, non-blocking send.
     //
@@ -81,7 +79,6 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     MessageBuffer rcv_buf_;
     MessageBuffer snd_buf_;
     ReadCallback read_cb_;
-    ReadAsyncCallback read_async_cb_;
     CloseCallback close_cb_;
     RemoveConnHandler remove_conn_handler_;
     TcpSocket conn_sk_;

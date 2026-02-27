@@ -32,6 +32,7 @@ int main(int argc, char* argv[]) {
             auto msg = conn->readAll();
             SHLOG_INFO("received: {}", msg.data_);
             conn->send("HTTP/1.1 200 OK\nContent-Length: 12\n\nHello World!\n", 50);
+            return 0;
         });
         // conn->SetReadCallback([conn]() {
         //     std::cout << "Received: " << conn->GetDataUntilCrLf() << std::endl;

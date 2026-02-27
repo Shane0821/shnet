@@ -129,45 +129,36 @@ void TcpConn::handleRead() {
         return;
     }
 
-    for (;;) {
-        size_t len = rcv_buf_.writableSize();
+    size_t len = rcv_buf_.writableSize();
+    if (len == 0) [[unlikely]] {
+        rcv_buf_.shrink();
+        len = rcv_buf_.writableSize();
         if (len == 0) [[unlikely]] {
-            rcv_buf_.shrink();
-            len = rcv_buf_.writableSize();
-            if (len == 0) {
-                break;  // buffer full; wait for application to consume
-            }
+            return;
         }
+    }
 
-        const ssize_t n = conn_sk_.read(rcv_buf_.writePointer(), len);
-        if (n > 0) [[likely]] {
-            rcv_buf_.writeCommit(static_cast<size_t>(n));
-            continue;  // try to drain until EAGAIN
-        }
-
-        if (n == 0) [[unlikely]] {
-            // Peer performed FIN (half-close); we may still write until we decide to
-            // close.
-            peer_shutdown_ = true;
-            break;
-        }
-
+    const ssize_t n = conn_sk_.read(rcv_buf_.writePointer(), len);
+    if (n <= 0) [[unlikely]] {
         const int err = errno;
         if (err == EAGAIN || err == EWOULDBLOCK) {
-            break;
+            return;
         }
-
         SHLOG_ERROR("handle read failed on fd {}: {}", conn_sk_.fd(), err);
         close();
         return;
     }
 
-    if (rcv_buf_.readableSize() > 0) [[likely]] {
-        if (read_cb_) [[likely]] {
-            read_cb_(shared_from_this());
-        }
-        if (read_async_cb_) [[likely]] {
-            shcoro::spawn_async_detached(read_async_cb_(shared_from_this()), ev_loop_->getScheduler());
+    rcv_buf_.writeCommit(static_cast<size_t>(n));
+
+    if (read_cb_) [[likely]] {
+        while (rcv_buf_.readableSize() > 0) {
+            int ret = read_cb_(shared_from_this());
+            if (ret < 0) [[unlikely]] {
+                SHLOG_ERROR("read callback failed on fd {}: {}", conn_sk_.fd(), ret);
+                close();
+                return;
+            }
         }
     }
 }
@@ -369,17 +360,7 @@ void TcpConn::enableWrite() {
 }
 
 void TcpConn::setReadCallback(ReadCallback cb) {
-    if (read_async_cb_) [[unlikely]] {
-        return;
-    }
     read_cb_ = cb;
-}
-
-void TcpConn::setReadAsyncCallback(ReadAsyncCallback cb) {
-    if (read_cb_) [[unlikely]] {
-        return;
-    }
-    read_async_cb_ = cb;
 }
 
 }  // namespace shnet
