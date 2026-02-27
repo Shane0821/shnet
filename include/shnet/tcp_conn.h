@@ -24,6 +24,7 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     Message readAll();
     Message readUntil(char terminator);
     Message readn(size_t n);
+    size_t getReadableSize() { return rcv_buf_.readableSize(); }
     
     void setReadCallback(ReadCallback cb);
 
