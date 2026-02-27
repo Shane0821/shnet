@@ -9,6 +9,17 @@ using shnet::EventLoop;
 using shnet::TcpConn;
 using shnet::TcpServer;
 
+shcoro::Async<void> coroRead(std::shared_ptr<TcpConn> conn) {
+    auto msg = conn->readn(15);
+    std::string cached_data(msg.data_);
+    for (int i = 0; i < 10; i++) {
+        SHLOG_INFO("fifo await");
+        co_await shcoro::FIFOAwaiter{};
+    }
+    SHLOG_INFO("received: {}", cached_data);
+    conn->send("HTTP/1.1 200 OK\nContent-Length: 12\n\nHello World!\n", 50);
+}
+
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         return 1;
@@ -29,9 +40,8 @@ int main(int argc, char* argv[]) {
         });
 
         conn->setReadCallback([](std::shared_ptr<TcpConn> conn) {
-            auto msg = conn->readAll();
-            SHLOG_INFO("received: {}", msg.data_);
-            conn->send("HTTP/1.1 200 OK\nContent-Length: 12\n\nHello World!\n", 50);
+            if (conn->getReadableSize() < 15) return -1;
+            shcoro::spawn_async_detached(coroRead(conn), conn->getEventLoop()->getScheduler());
             return 0;
         });
         // conn->SetReadCallback([conn]() {
