@@ -31,13 +31,13 @@ int main(int argc, char* argv[]) {
 
         conn->setReadCallback([](std::shared_ptr<TcpConn> conn) {
             // For example, read until newline for a single text command
-            auto msg = conn->readUntil('\n');
+            auto msg = conn->readUntilCRLF();
             if (!msg.data_ || msg.size_ == 0) {
                 return -1;  // not enough data yet
             }
         
-            std::string_view cmd(msg.data_, msg.size_ - 1);
-            SHLOG_INFO("cmd: {}, size: {}", cmd, msg.size_);
+            std::string cmd(msg.data_, msg.size_);
+            SHLOG_INFO("cmd: {}, size: {}", cmd, cmd.size());
         
             if (cmd == "SUB") {
                 conn->subscribe();
@@ -48,7 +48,8 @@ int main(int argc, char* argv[]) {
                 conn->unsubscribe();
                 return 0;
             }
-        
+
+            cmd += "\r\n";
             constexpr std::string_view pub_prefix = "PUB ";
             if (cmd.substr(0, pub_prefix.size()) == pub_prefix) {
                 std::string_view payload = cmd.substr(pub_prefix.size());
