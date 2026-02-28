@@ -208,6 +208,7 @@ int TcpConn::sendBlocking(const char* data, size_t size) {
                 continue;
             }
             SHLOG_ERROR("send blocking failed on fd {}: {}", conn_sk_.fd(), errno);
+            close();
             return -errno;
         }
         snd_buf_.readCommit(n);
@@ -224,6 +225,7 @@ int TcpConn::sendBlocking(const char* data, size_t size) {
                 continue;
             }
             SHLOG_ERROR("send blocking failed on fd {}: {}", conn_sk_.fd(), errno);
+            close();
             return -errno;
         }
         data += static_cast<size_t>(n);
