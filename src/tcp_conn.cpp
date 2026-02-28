@@ -88,6 +88,15 @@ Message TcpConn::readUntil(char terminator) {
     return ret;
 }
 
+Message TcpConn::readUntilCRLF() {
+    auto ret = rcv_buf_.getDataUntilCRLF();
+    if (ret.data_ != nullptr) {
+        // Consume the delimiter as well while returning line content only.
+        rcv_buf_.readCommit(ret.size_ + 2);
+    }
+    return ret;
+}
+
 Message TcpConn::readn(size_t n) {
     auto ret = rcv_buf_.getData(n);
     rcv_buf_.readCommit(ret.size_);

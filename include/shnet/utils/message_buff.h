@@ -66,6 +66,17 @@ class MessageBuffer {
         return {nullptr, 0};  // not found
     }
 
+    Message getDataUntilCRLF() {
+        char* data = readPointer();
+        std::size_t active_size = readableSize();
+        for (std::size_t i = 0; i + 1 < active_size; ++i) {
+            if (data[i] == '\r' && data[i + 1] == '\n') {
+                return {data, i};  // terminator not included
+            }
+        }
+        return {nullptr, 0};  // not found
+    }
+
     char* writePointer() { return buffer_.data() + write_pos_; }
 
     // upd write pos when writing data without using write(const void *, size_t)
