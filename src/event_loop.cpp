@@ -82,6 +82,7 @@ void EventLoop::run() {
         }
         
         coro_scheduler_.run_once();
+        Timer::GetInst().run_once();
     }
 }
 
