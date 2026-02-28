@@ -11,6 +11,8 @@
 
 namespace shnet {
 
+class TcpServer;
+
 class TcpConn : public std::enable_shared_from_this<TcpConn> {
     friend class TcpServer;
 
@@ -25,7 +27,6 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     Message readUntil(char terminator);
     Message readn(size_t n);
     size_t getReadableSize() { return rcv_buf_.readableSize(); }
-    
     void setReadCallback(ReadCallback cb);
 
     // Buffered, non-blocking send.
@@ -39,9 +40,14 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     // means this connection has taken ownership for delivery.
     int send(const char* data, size_t size);
     int sendBlocking(const char* data, size_t size);
-
     bool sendAsyncShouldYield(size_t size) { return snd_buf_.getFreeSize() < size; }
     shcoro::Async<int> sendAsync(const char* data, size_t size);
+
+    // Subscription helpers
+    void subscribe();
+    void unsubscribe();
+    // Broadcast helpers – calls owner server’s broadcast().
+    int broadcast(const char* data, size_t size);
 
     void setCloseCallback(CloseCallback cb) { close_cb_ = cb; }
 
@@ -88,6 +94,7 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     bool closed_{false};
     bool peer_shutdown_{false};  // peer has shutdown its write side (FIN/RDHUP/read==0)
     bool removed_{false};        // remove callback invoked
+    TcpServer* owner_server_{nullptr};
 };
 
 }  // namespace shnet

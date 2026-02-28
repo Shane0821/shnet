@@ -30,6 +30,7 @@ TcpServer::~TcpServer() {}
 
 
 inline void TcpServer::removeConn(int fd) {
+    subscribers_.erase(fd); 
     conn_map_.erase(fd);
 }
 
@@ -50,6 +51,7 @@ void TcpServer::handleAccept(uint32_t events) {
         }
 
         auto conn = std::make_shared<TcpConn>(conn_fd, ev_loop_);
+        conn->owner_server_ = this;
         conn->setRemoveConnHandler({this, &removeConnTrampoline});
         if (new_conn_cb_) [[likely]] {
             new_conn_cb_(conn);
@@ -80,6 +82,33 @@ void TcpServer::start(uint16_t port, NewConnCallback cb) {
                                 "failed to register listen socket to epoll");
     }
     SHLOG_INFO("TcpServer started on port: {}", port);
+}
+
+void TcpServer::subscribe(int fd) {
+    subscribers_.insert(fd);
+}
+
+void TcpServer::unsubscribe(int fd) {
+    subscribers_.erase(fd);
+}
+
+int TcpServer::broadcast(const char* data, size_t size) {
+    if (!data || size == 0) {
+        return 0;
+    }
+
+    int last_err = 0;
+    for (int fd : subscribers_) {
+        auto it = conn_map_.find(fd);
+        if (it == conn_map_.end()) {
+            continue;  // connection already gone
+        }
+        int ret = it->second->send(data, size);
+        if (ret < 0) {
+            last_err = ret;
+        }
+    }
+    return last_err;
 }
 
 }  // namespace shnet

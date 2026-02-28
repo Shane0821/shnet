@@ -9,6 +9,7 @@
 
 #include "shcoro/stackless/utility.hpp"
 #include "shnet/event_loop.h"
+#include "shnet/tcp_server.h"
 
 namespace shnet {
 
@@ -351,6 +352,25 @@ void TcpConn::enableWrite() {
 
 void TcpConn::setReadCallback(ReadCallback cb) {
     read_cb_ = cb;
+}
+
+void TcpConn::subscribe() {
+    if (owner_server_) {
+        owner_server_->subscribe(conn_sk_.fd());
+    }
+}
+
+void TcpConn::unsubscribe() {
+    if (owner_server_) {
+        owner_server_->unsubscribe(conn_sk_.fd());
+    }
+}
+
+int TcpConn::broadcast(const char* data, size_t size) {
+    if (!owner_server_) [[unlikely]] {
+        return -ESHUTDOWN;
+    }
+    return owner_server_->broadcast(data, size);
 }
 
 }  // namespace shnet
