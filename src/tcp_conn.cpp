@@ -358,12 +358,14 @@ void TcpConn::setReadCallback(ReadCallback cb) {
 
 void TcpConn::subscribe() {
     if (owner_server_) {
+        SHLOG_INFO("subscribe to server, fd: {}", conn_sk_.fd());
         owner_server_->subscribe(conn_sk_.fd());
     }
 }
 
 void TcpConn::unsubscribe() {
     if (owner_server_) {
+        SHLOG_INFO("unsubscribe to server, fd: {}", conn_sk_.fd());
         owner_server_->unsubscribe(conn_sk_.fd());
     }
 }
