@@ -28,17 +28,7 @@ TcpConn::TcpConn(int fd, EventLoop* loop) : conn_sk_(fd), ev_loop_(loop), closed
 }
 
 TcpConn::~TcpConn() {
-    if (closed_) [[unlikely]] {
-        return;
-    }
-    const int fd = conn_sk_.fd();
-    SHLOG_INFO("Tcpconn close: {}", fd);
-    closed_ = true;
-    ev_loop_->delEvent(fd);
-    if (close_cb_) [[likely]] {
-        close_cb_(fd);
-    }
-    conn_sk_.close();
+    close();
 }
 
 void TcpConn::removeFromServer() {

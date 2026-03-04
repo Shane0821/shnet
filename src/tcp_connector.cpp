@@ -29,17 +29,7 @@ TcpConnector::TcpConnector(EventLoop* loop)
       }()) {}
 
 TcpConnector::~TcpConnector() {
-    if (closed_) [[unlikely]] {
-        return;
-    }
-    const int fd = conn_sk_.fd();
-    SHLOG_INFO("TcpConnector close: {}", fd);
-    closed_ = true;
-    ev_loop_->delEvent(fd);
-    if (close_cb_) [[likely]] {
-        close_cb_(fd);
-    }
-    conn_sk_.close();
+    close();
 }
 
 int TcpConnector::connect(const std::string& ip, uint16_t port) {
