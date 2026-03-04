@@ -1,4 +1,4 @@
-#include "shnet/tcp_connector.h"
+#include "shnet/tcp_client.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -13,11 +13,11 @@
 
 namespace shnet {
 
-inline void TcpConnector::ioTrampoline(void* obj, uint32_t events) {
-    static_cast<TcpConnector*>(obj)->handleIO(events);
+inline void TcpClient::ioTrampoline(void* obj, uint32_t events) {
+    static_cast<TcpClient*>(obj)->handleIO(events);
 }
 
-TcpConnector::TcpConnector(EventLoop* loop)
+TcpClient::TcpClient(EventLoop* loop)
     : ev_loop_(loop),
       conn_sk_([] {
           int fd = ::socket(AF_INET, SOCK_STREAM, 0);
@@ -28,11 +28,11 @@ TcpConnector::TcpConnector(EventLoop* loop)
           return fd;
       }()) {}
 
-TcpConnector::~TcpConnector() {
+TcpClient::~TcpClient() {
     close();
 }
 
-int TcpConnector::connect(const std::string& ip, uint16_t port) {
+int TcpClient::connect(const std::string& ip, uint16_t port) {
     if (closed_) [[unlikely]] {
         return -ESHUTDOWN;
     }
@@ -60,7 +60,7 @@ int TcpConnector::connect(const std::string& ip, uint16_t port) {
             close();
             return -errno;
         }
-        SHLOG_INFO("TcpConnector connected immediately to {}:{}", ip, port);
+        SHLOG_INFO("TcpClient connected immediately to {}:{}", ip, port);
         return 0;
     }
 
@@ -79,19 +79,19 @@ int TcpConnector::connect(const std::string& ip, uint16_t port) {
             close();
             return -errno;
         }
-        SHLOG_INFO("TcpConnector connecting asynchronously to {}:{}", ip, port);
+        SHLOG_INFO("TcpClient connecting asynchronously to {}:{}", ip, port);
     }
 
     return 0;
 }
 
-Message TcpConnector::readAll() {
+Message TcpClient::readAll() {
     auto ret = rcv_buf_.getAllData();
     rcv_buf_.readCommit(ret.size_);
     return ret;
 }
 
-Message TcpConnector::readUntil(char terminator) {
+Message TcpClient::readUntil(char terminator) {
     auto ret = rcv_buf_.getDataUntil(terminator);
     if (ret.data_ != nullptr) {
         // Consume the delimiter as well while returning line content only.
@@ -100,7 +100,7 @@ Message TcpConnector::readUntil(char terminator) {
     return ret;
 }
 
-Message TcpConnector::readUntilCRLF() {
+Message TcpClient::readUntilCRLF() {
     auto ret = rcv_buf_.getDataUntilCRLF();
     if (ret.data_ != nullptr) {
         // Consume the delimiter as well while returning line content only.
@@ -109,13 +109,13 @@ Message TcpConnector::readUntilCRLF() {
     return ret;
 }
 
-Message TcpConnector::readn(size_t n) {
+Message TcpClient::readn(size_t n) {
     auto ret = rcv_buf_.getData(n);
     rcv_buf_.readCommit(ret.size_);
     return ret;
 }
 
-void TcpConnector::handleIO(uint32_t events) {
+void TcpClient::handleIO(uint32_t events) {
     if (closed_) [[unlikely]] {
         return;
     }
@@ -141,7 +141,7 @@ void TcpConnector::handleIO(uint32_t events) {
     if (events & EPOLLOUT && !connect_in_progress_) handleWrite();
 }
 
-void TcpConnector::handleConnect() {
+void TcpClient::handleConnect() {
     int err = 0;
     socklen_t len = sizeof(err);
     if (::getsockopt(conn_sk_.fd(), SOL_SOCKET, SO_ERROR, &err, &len) < 0) {
@@ -165,10 +165,10 @@ void TcpConnector::handleConnect() {
         return;
     }
 
-    SHLOG_INFO("TcpConnector async connect succeeded on fd {}", conn_sk_.fd());
+    SHLOG_INFO("TcpClient async connect succeeded on fd {}", conn_sk_.fd());
 }
 
-void TcpConnector::handleRead() {
+void TcpClient::handleRead() {
     if (closed_) [[unlikely]] {
         SHLOG_WARN("handle read on closed connector fd {}", conn_sk_.fd());
         return;
@@ -210,7 +210,7 @@ void TcpConnector::handleRead() {
     }
 }
 
-void TcpConnector::handleWrite() {
+void TcpClient::handleWrite() {
     if (closed_) [[unlikely]] {
         SHLOG_WARN("handle write on closed connector fd {}", conn_sk_.fd());
         return;
@@ -245,7 +245,7 @@ void TcpConnector::handleWrite() {
     }
 }
 
-int TcpConnector::sendBlocking(const char* data, size_t size) {
+int TcpClient::sendBlocking(const char* data, size_t size) {
     if (size == 0) [[unlikely]] {
         return 0;
     }
@@ -293,7 +293,7 @@ int TcpConnector::sendBlocking(const char* data, size_t size) {
     return 0;
 }
 
-int TcpConnector::send(const char* data, size_t size) {
+int TcpClient::send(const char* data, size_t size) {
     if (size == 0) [[unlikely]] {
         return 0;
     }
@@ -343,7 +343,7 @@ int TcpConnector::send(const char* data, size_t size) {
     return 0;
 }
 
-shcoro::Async<int> TcpConnector::sendAsync(const char* data, size_t size) {
+shcoro::Async<int> TcpClient::sendAsync(const char* data, size_t size) {
     if (size == 0) [[unlikely]] {
         co_return 0;
     }
@@ -391,7 +391,7 @@ shcoro::Async<int> TcpConnector::sendAsync(const char* data, size_t size) {
     co_return 0;
 }
 
-void TcpConnector::disableWrite() {
+void TcpClient::disableWrite() {
     if (closed_) [[unlikely]] {
         return;
     }
@@ -401,7 +401,7 @@ void TcpConnector::disableWrite() {
     }
 }
 
-void TcpConnector::enableWrite() {
+void TcpClient::enableWrite() {
     if (closed_) [[unlikely]] {
         return;
     }
@@ -412,17 +412,17 @@ void TcpConnector::enableWrite() {
     }
 }
 
-void TcpConnector::setReadCallback(ReadCallback cb) {
+void TcpClient::setReadCallback(ReadCallback cb) {
     read_cb_ = cb;
 }
 
-void TcpConnector::close() {
+void TcpClient::close() {
     if (closed_) [[unlikely]] {
         return;
     }
 
     const int fd = conn_sk_.fd();
-    SHLOG_INFO("TcpConnector close: {}", fd);
+    SHLOG_INFO("TcpClient close: {}", fd);
 
     closed_ = true;
 

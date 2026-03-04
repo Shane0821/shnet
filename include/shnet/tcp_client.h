@@ -14,13 +14,13 @@ namespace shnet {
 // Active TCP connector/client that dials a remote TCP server and then behaves
 // similarly to TcpConn: non-blocking, buffered I/O driven by EventLoop with a
 // read callback and async send support.
-class TcpConnector : public std::enable_shared_from_this<TcpConnector> {
+class TcpClient : public std::enable_shared_from_this<TcpClient> {
    public:
-    using ReadCallback = int (*)(std::shared_ptr<TcpConnector>);
+    using ReadCallback = int (*)(std::shared_ptr<TcpClient>);
     using CloseCallback = void (*)(int);
 
-    explicit TcpConnector(EventLoop* evLoop);
-    ~TcpConnector();
+    explicit TcpClient(EventLoop* evLoop);
+    ~TcpClient();
 
     // Initiate a connection to the given IPv4 address and port.
     //

@@ -7,7 +7,7 @@ A C++20 async TCP networking library built on epoll, featuring non-blocking I/O,
 - **EventLoop** — Single-threaded event loop backed by Linux epoll
 - **TcpServer** — Accept incoming connections with a callback-driven API
 - **TcpConn** — Server-side connection with buffered I/O, read callbacks, and async send
-- **TcpConnector** — Client-side connector for dialing remote TCP servers
+- **TcpClient** — Client-side connector for dialing remote TCP servers
 - **Coroutine support** — Integrates with [shcoro](https://github.com/Shane0821/shcoro) for `co_await`-style async I/O
 - **Pub/sub helpers** — Subscribe/unsubscribe and broadcast to selected connections
 
@@ -101,7 +101,7 @@ conn->broadcast(data, size);
 ```cpp
 #include "shnet/tcp_connector.h"
 
-TcpConnector connector(&evloop);
+TcpClient connector(&evloop);
 int ret = connector->connect("127.0.0.1", 8080);
 if (ret == 0) {
     connector->setReadCallback(/* ... */);
