@@ -301,6 +301,9 @@ int TcpClient::sendBlocking(const char* data, size_t size) {
     if (closed_) [[unlikely]] {
         return -ESHUTDOWN;
     }
+    if (!connected_) [[unlikely]] {
+        return -ENOTCONN;
+    }
 
     // drain send buffer
     while (!snd_buf_.empty()) {
@@ -348,6 +351,9 @@ int TcpClient::send(const char* data, size_t size) {
     }
     if (closed_) [[unlikely]] {
         return -ESHUTDOWN;
+    }
+    if (!connected_) [[unlikely]] {
+        return -ENOTCONN;
     }
 
     if (snd_buf_.getFreeSize() < size) [[unlikely]] {
@@ -398,6 +404,9 @@ shcoro::Async<int> TcpClient::sendAsync(const char* data, size_t size) {
     }
     if (closed_) [[unlikely]] {
         co_return -ESHUTDOWN;
+    }
+    if (!connected_) [[unlikely]] {
+        co_return -ENOTCONN;
     }
 
     while (snd_buf_.getFreeSize() < size) {
