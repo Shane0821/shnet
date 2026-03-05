@@ -18,8 +18,7 @@ inline void TcpClient::ioTrampoline(void* obj, uint32_t events) {
 }
 
 TcpClient::TcpClient(EventLoop* loop)
-    : ev_loop_(loop),
-      conn_sk_([] {
+    : ev_loop_(loop), conn_sk_([] {
           int fd = ::socket(AF_INET, SOCK_STREAM, 0);
           if (fd == -1) [[unlikely]] {
               throw std::system_error(errno, std::system_category(),
@@ -28,9 +27,7 @@ TcpClient::TcpClient(EventLoop* loop)
           return fd;
       }()) {}
 
-TcpClient::~TcpClient() {
-    close();
-}
+TcpClient::~TcpClient() { close(); }
 
 int TcpClient::connect(const std::string& ip, uint16_t port) {
     if (closed_) [[unlikely]] {
@@ -160,6 +157,10 @@ void TcpClient::handleConnect() {
                     errno);
         close();
         return;
+    }
+
+    if (connect_cb_) {
+        connect_cb_();
     }
 
     SHLOG_INFO("TcpClient async connect succeeded on fd {}", conn_sk_.fd());
@@ -409,9 +410,7 @@ void TcpClient::enableWrite() {
     }
 }
 
-void TcpClient::setReadCallback(ReadCallback cb) {
-    read_cb_ = cb;
-}
+void TcpClient::setReadCallback(ReadCallback cb) { read_cb_ = cb; }
 
 void TcpClient::close() {
     if (closed_) [[unlikely]] {
@@ -434,4 +433,3 @@ void TcpClient::close() {
 }
 
 }  // namespace shnet
-

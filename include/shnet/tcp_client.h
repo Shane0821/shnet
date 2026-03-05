@@ -18,6 +18,7 @@ class TcpClient : public std::enable_shared_from_this<TcpClient> {
    public:
     using ReadCallback = int (*)(std::shared_ptr<TcpClient>);
     using CloseCallback = void (*)(int);
+    using ConnectCallback = void (*)();
 
     explicit TcpClient(EventLoop* evLoop);
     ~TcpClient();
@@ -34,6 +35,7 @@ class TcpClient : public std::enable_shared_from_this<TcpClient> {
     // - Returns 0 on success (including EINPROGRESS).
     // - Returns negative errno on immediate failure (e.g. -ECONNREFUSED).
     int connect(const std::string& ip, uint16_t port);
+    void setConnectCallback(ConnectCallback cb) { connect_cb_ = cb; }
 
     // Read helpers (consume data from internal receive buffer).
     Message readAll();
@@ -85,6 +87,7 @@ class TcpClient : public std::enable_shared_from_this<TcpClient> {
     MessageBuffer snd_buf_{SOCK_SEND_LEN};
     ReadCallback read_cb_{nullptr};
     CloseCallback close_cb_{nullptr};
+    ConnectCallback connect_cb_{nullptr};
     TcpSocket conn_sk_;
     bool closed_{false};
     bool connect_in_progress_{false};
@@ -92,4 +95,3 @@ class TcpClient : public std::enable_shared_from_this<TcpClient> {
 };
 
 }  // namespace shnet
-
