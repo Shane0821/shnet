@@ -105,8 +105,6 @@ void TcpConn::handleIO(uint32_t events) {
         return;
     }
 
-    // Keep this connection alive through shared_from_this()
-    auto self_ptr = shared_from_this();
     if (events & EPOLLIN) handleRead();
     if (events & EPOLLOUT) handleWrite();
 }

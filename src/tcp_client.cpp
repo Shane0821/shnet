@@ -126,9 +126,6 @@ void TcpClient::handleIO(uint32_t events) {
         return;
     }
 
-    // Keep this connector alive through shared_from_this()
-    auto self_ptr = shared_from_this();
-
     if (connect_in_progress_ && (events & EPOLLOUT)) {
         handleConnect();
         // After handleConnect(), the connection may be closed.
