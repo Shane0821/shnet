@@ -35,6 +35,18 @@ class TcpClient : public std::enable_shared_from_this<TcpClient> {
     // - Returns 0 on success (including EINPROGRESS).
     // - Returns negative errno on immediate failure (e.g. -ECONNREFUSED).
     int connect(const std::string& ip, uint16_t port);
+
+    // Blocking connect helper.
+    //
+    // Performs a blocking ::connect() on the underlying socket and, on success,
+    // switches it back to non-blocking mode and registers it with the
+    // EventLoop for EPOLLIN (like an immediately successful non-blocking
+    // connect()).
+    //
+    // Contract:
+    // - Returns 0 on success.
+    // - Returns negative errno on failure (e.g. -ECONNREFUSED, -ETIMEDOUT).
+    int connectBlocking(const std::string& ip, uint16_t port);
     void setConnectCallback(ConnectCallback cb) { connect_cb_ = cb; }
 
     // Read helpers (consume data from internal receive buffer).

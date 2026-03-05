@@ -82,6 +82,54 @@ int TcpClient::connect(const std::string& ip, uint16_t port) {
     return 0;
 }
 
+int TcpClient::connectBlocking(const std::string& ip, uint16_t port) {
+    if (closed_) [[unlikely]] {
+        return -ESHUTDOWN;
+    }
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+
+    if (::inet_pton(AF_INET, ip.c_str(), &addr.sin_addr) <= 0) {
+        SHLOG_ERROR("inet_pton failed for ip {}: {}", ip, errno);
+        return -EINVAL;
+    }
+
+    // Ensure we are in blocking mode for a truly blocking connect().
+    conn_sk_.setBlocking();
+    const int fd = conn_sk_.fd();
+
+    int ret = ::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+
+    if (ret < 0) [[unlikely]] {
+        int err = errno;
+        SHLOG_ERROR("blocking connect failed for fd {}: {}", fd, err);
+        return -err;
+    }
+
+    // Connection established synchronously; switch back to non-blocking and
+    // integrate with EventLoop exactly like an immediate success in connect().
+    conn_sk_.setNonBlocking();
+    conn_sk_.setKeepAlive();
+
+    connected_ = true;
+    io_handler_ = EventLoop::EventHandler{this, &ioTrampoline};
+    if (ev_loop_->addEvent(fd, EPOLLIN, &io_handler_) < 0) [[unlikely]] {
+        SHLOG_ERROR("failed to register connector fd {} to epoll (blocking): {}", fd,
+                    errno);
+        close();
+        return -errno;
+    }
+
+    if (connect_cb_) {
+        connect_cb_();
+    }
+
+    SHLOG_INFO("TcpClient blocking connected to {}:{}", ip, port);
+    return 0;
+}
+
 Message TcpClient::readAll() {
     auto ret = rcv_buf_.getAllData();
     rcv_buf_.readCommit(ret.size_);
