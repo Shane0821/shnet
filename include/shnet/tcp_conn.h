@@ -93,7 +93,6 @@ class TcpConn : public std::enable_shared_from_this<TcpConn> {
     RemoveConnHandler remove_conn_handler_;
     TcpSocket conn_sk_;
     bool closed_{false};
-    bool peer_shutdown_{false};  // peer has shutdown its write side (FIN/RDHUP/read==0)
     bool removed_{false};        // remove callback invoked
     TcpServer* owner_server_{nullptr};
 };
